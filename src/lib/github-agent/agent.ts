@@ -35,15 +35,17 @@ export async function analyzeFeasibility(
     },
   });
 
-  // 1. Find the repository in Supabase
+  // 1. Find the repository in Supabase (try case-insensitive match)
   const { data: repo, error: repoError } = await supabase
     .from("repos")
     .select("id, name, owner")
-    .eq("owner", repoOwner)
-    .eq("name", repoName)
+    .ilike("owner", repoOwner)
+    .ilike("name", repoName)
+    .limit(1)
     .single();
 
   if (repoError || !repo) {
+    console.error(`Repo lookup failed for ${repoOwner}/${repoName}:`, repoError);
     return createErrorResult(
       `Repository ${repoOwner}/${repoName} not found in Monoid. Please index this repository first.`
     );
@@ -344,15 +346,17 @@ export async function analyzeAndVisualize(
     },
   });
 
-  // 1. Find the repository in Supabase
+  // 1. Find the repository in Supabase (try case-insensitive match)
   const { data: repo, error: repoError } = await supabase
     .from("repos")
     .select("id, name, owner")
-    .eq("owner", repoOwner)
-    .eq("name", repoName)
+    .ilike("owner", repoOwner)
+    .ilike("name", repoName)
+    .limit(1)
     .single();
 
   if (repoError || !repo) {
+    console.error(`Repo lookup failed for ${repoOwner}/${repoName}:`, repoError);
     return createVisualizationErrorResult(
       `Repository ${repoOwner}/${repoName} not found in Monoid. Please index this repository first.`
     );
@@ -360,14 +364,15 @@ export async function analyzeAndVisualize(
 
   // 2. Get the latest version for this repo
   const { data: version, error: versionError } = await supabase
-    .from("versions")
+    .from("repo_versions")
     .select("id")
     .eq("repo_id", repo.id)
-    .order("created_at", { ascending: false })
+    .order("ingested_at", { ascending: false })
     .limit(1)
     .single();
 
   if (versionError || !version) {
+    console.error(`Version lookup failed for repo ${repo.id}:`, versionError);
     return createVisualizationErrorResult(
       "No code analysis found for this repository. Please run Monoid indexing first."
     );
@@ -381,6 +386,7 @@ export async function analyzeAndVisualize(
     .limit(100);
 
   if (nodesError || !nodes || nodes.length === 0) {
+    console.error(`Nodes lookup failed for version ${version.id}:`, nodesError);
     return createVisualizationErrorResult(
       "No code nodes found. The repository may not be fully indexed."
     );
@@ -388,7 +394,7 @@ export async function analyzeAndVisualize(
 
   // 4. Fetch edges (relationships between nodes)
   const { data: edges, error: edgesError } = await supabase
-    .from("node_edges")
+    .from("code_edges")
     .select("source_node_id, target_node_id, edge_type")
     .eq("version_id", version.id)
     .limit(200);
