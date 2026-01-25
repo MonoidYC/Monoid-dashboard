@@ -17,6 +17,8 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  Share2,
+  Check,
 } from "lucide-react";
 import { DocMarkdownEditor } from "@/components/docs";
 import {
@@ -75,6 +77,9 @@ export default function DocEditorPage() {
   
   // View mode: published docs open in read-only mode by default
   const [isViewMode, setIsViewMode] = useState(false);
+  
+  // Share link copied state
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   
   // Preview container ref for handling node link clicks
   const previewRef = useRef<HTMLDivElement>(null);
@@ -293,6 +298,15 @@ export default function DocEditorPage() {
     return repos.find((r) => r.id === repoId);
   }, [repoId, repos]);
 
+  // Handle copy share link
+  const handleCopyShareLink = useCallback(() => {
+    if (!organization) return;
+    const shareUrl = `${window.location.origin}/share/${organization.slug}/${docSlug}`;
+    navigator.clipboard.writeText(shareUrl);
+    setShareLinkCopied(true);
+    setTimeout(() => setShareLinkCopied(false), 2000);
+  }, [organization, docSlug]);
+
   // Keyboard shortcut for save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -436,28 +450,69 @@ export default function DocEditorPage() {
 
               {/* Show status badge in view mode, full controls in edit mode */}
               {isViewMode ? (
-                // In view mode, just show the publish status as a badge
-                <div
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
-                    isPublished
-                      ? "bg-emerald-500/10 text-emerald-400"
-                      : "bg-gray-500/10 text-gray-400"
-                  }`}
-                >
-                  {isPublished ? (
-                    <>
-                      <Globe className="w-4 h-4" />
-                      <span>Published</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4" />
-                      <span>Draft</span>
-                    </>
+                <>
+                  {/* Share button - only show when published */}
+                  {isPublished && (
+                    <button
+                      onClick={handleCopyShareLink}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+                    >
+                      {shareLinkCopied ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-4 h-4" />
+                          <span>Share</span>
+                        </>
+                      )}
+                    </button>
                   )}
-                </div>
+                  {/* Publish status badge */}
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                      isPublished
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-gray-500/10 text-gray-400"
+                    }`}
+                  >
+                    {isPublished ? (
+                      <>
+                        <Globe className="w-4 h-4" />
+                        <span>Published</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4" />
+                        <span>Draft</span>
+                      </>
+                    )}
+                  </div>
+                </>
               ) : (
                 <>
+                  {/* Share button - only show when published and not new */}
+                  {isPublished && !isNew && (
+                    <button
+                      onClick={handleCopyShareLink}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+                    >
+                      {shareLinkCopied ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span className="hidden sm:inline">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-4 h-4" />
+                          <span className="hidden sm:inline">Share</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
                   {/* Publish Toggle */}
                   <button
                     onClick={handleTogglePublish}

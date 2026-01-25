@@ -87,6 +87,7 @@ export type Database = {
           stable_id: string
           start_column: number | null
           start_line: number
+          summary: string | null
           version_id: string
         }
         Insert: {
@@ -106,6 +107,7 @@ export type Database = {
           stable_id: string
           start_column?: number | null
           start_line: number
+          summary?: string | null
           version_id: string
         }
         Update: {
@@ -125,6 +127,7 @@ export type Database = {
           stable_id?: string
           start_column?: number | null
           start_line?: number
+          summary?: string | null
           version_id?: string
         }
         Relationships: [
@@ -194,6 +197,45 @@ export type Database = {
           },
         ]
       }
+      org_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           avatar_url: string | null
@@ -223,6 +265,33 @@ export type Database = {
           id?: string
           name?: string
           slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          github_username: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          github_username?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          github_username?: string | null
+          id?: string
           updated_at?: string | null
         }
         Relationships: []
