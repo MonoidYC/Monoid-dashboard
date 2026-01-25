@@ -57,10 +57,12 @@ export async function updateSession(request: NextRequest) {
     "/share",
     "/api/mcp",
     "/api/docs",
-    "/graph",  // Allow webview access (auth handled client-side via VS Code)
-    "/tests",  // Allow webview access (auth handled client-side via VS Code)
-    "/",       // Home page is public
   ];
+
+  // Check if request is from VS Code webview (via URL param)
+  // This allows the webview to load pages without cookie-based auth
+  // The actual auth is handled client-side via session passed from VS Code
+  const isVSCodeWebview = request.nextUrl.searchParams.get("vscode") === "true";
 
   const isPublicRoute = publicRoutes.some(
     (route) =>
@@ -69,7 +71,8 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Redirect to login if not authenticated and not on a public route
-  if (!user && !isPublicRoute) {
+  // Allow VS Code webview requests through (auth handled client-side)
+  if (!user && !isPublicRoute && !isVSCodeWebview) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
