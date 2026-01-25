@@ -17,7 +17,9 @@ import {
   Building2,
   Globe,
   FileText,
-  Map
+  Map,
+  Database,
+  MessageSquare
 } from "lucide-react";
 import { getOrganizationsWithRepos } from "@/lib/graph/queries";
 import type { OrganizationWithRepos, RepoWithVersions, RepoVersionRow } from "@/lib/graph/types";
@@ -136,11 +138,16 @@ export default function Home() {
       
       <div className="max-w-4xl mx-auto text-center">
         {/* Logo */}
-        <div className="mb-10 flex items-center justify-center">
+        <div className="mb-4 flex items-center justify-center">
           <h1 className="text-5xl font-semibold tracking-tight text-white">
             Monoid
           </h1>
         </div>
+
+        {/* Subheading */}
+        <p className="text-2xl text-gray-300 mb-10 font-medium tracking-wide">
+          Visualize. Test. Document.
+        </p>
 
         {/* Tagline */}
         <p className="text-xl text-gray-400 mb-14 max-w-xl mx-auto font-light leading-relaxed tracking-tight">
@@ -150,7 +157,7 @@ export default function Home() {
 
         {/* Feature cards - only show when not logged in */}
         {!isLoading && orgData.length === 0 && (
-          <div className="grid md:grid-cols-4 gap-5 mb-14">
+          <div className="grid md:grid-cols-3 gap-5 mb-14">
             <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
               <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center mb-5 mx-auto">
                 <GitBranch className="w-5 h-5 text-blue-400" />
@@ -190,6 +197,35 @@ export default function Home() {
                 Understand the impact of changes before you make them.
               </p>
             </div>
+
+            <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-5 mx-auto overflow-hidden">
+                <img 
+                  src="https://img.icons8.com/fluent/1200/supabase.jpg" 
+                  alt="Supabase" 
+                  className="w-7 h-7 object-contain"
+                />
+              </div>
+              <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Node Storage + Test Videos</h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+                All graph nodes and test recordings stored securely on Supabase.
+              </p>
+            </div>
+
+            <a 
+              href="https://www.sim.ai/chat/codebase-analyzer" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-white/[0.08] transition-all group"
+            >
+              <div className="w-11 h-11 rounded-xl bg-violet-500/10 flex items-center justify-center mb-5 mx-auto">
+                <MessageSquare className="w-5 h-5 text-violet-400" />
+              </div>
+              <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight group-hover:text-white transition-colors">Chat Agent</h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+                AI-powered chat agent built on Sim Studio for codebase exploration.
+              </p>
+            </a>
           </div>
         )}
 
@@ -216,10 +252,10 @@ export default function Home() {
                     {/* Organization Header */}
                     <button
                       onClick={() => toggleOrg(organization.id)}
-                      className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                      className="w-full p-5 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center overflow-hidden">
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {organization.avatar_url ? (
                             <img 
                               src={organization.avatar_url} 
@@ -230,11 +266,11 @@ export default function Home() {
                             <Building2 className="w-6 h-6 text-white/60" />
                           )}
                         </div>
-                        <div className="text-left">
-                          <div className="font-medium text-white/90 text-lg">
+                        <div className="text-left min-w-0">
+                          <div className="font-medium text-white/90 text-lg truncate">
                             {organization.name}
                           </div>
-                          <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
+                          <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3 flex-wrap">
                             <span>{totalRepos} {totalRepos === 1 ? "repo" : "repos"}</span>
                             <span className="text-gray-600">·</span>
                             <span>{totalVersions} {totalVersions === 1 ? "commit" : "commits"}</span>
@@ -247,7 +283,7 @@ export default function Home() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-shrink-0">
                         {/* Docs and Roadmap buttons */}
                         {repos.length > 0 && (
                           <div className="flex items-center gap-2">
