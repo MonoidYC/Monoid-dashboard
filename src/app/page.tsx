@@ -2,17 +2,19 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2 } from "lucide-react";
+import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2, Map as MapIcon, Building2 } from "lucide-react";
 import { getRepoVersions } from "@/lib/graph/queries";
-import type { RepoVersionRow, RepoRow } from "@/lib/graph/types";
+import type { RepoVersionRow, RepoRow, OrganizationRow } from "@/lib/graph/types";
 
 interface VersionWithRepo {
   version: RepoVersionRow;
   repo: RepoRow;
+  organization: OrganizationRow | null;
 }
 
 interface RepoGroup {
   repo: RepoRow;
+  organization: OrganizationRow | null;
   versions: RepoVersionRow[];
 }
 
@@ -30,12 +32,12 @@ export default function Home() {
         // Group versions by repo
         const groupMap = new Map<string, RepoGroup>();
         
-        for (const { version, repo } of data) {
+        for (const { version, repo, organization } of data) {
           const existing = groupMap.get(repo.id);
           if (existing) {
             existing.versions.push(version);
           } else {
-            groupMap.set(repo.id, { repo, versions: [version] });
+            groupMap.set(repo.id, { repo, organization, versions: [version] });
           }
         }
         
@@ -174,7 +176,7 @@ export default function Home() {
               Available Repositories
             </h2>
             <div className="space-y-3">
-              {repoGroups.map(({ repo, versions }) => (
+              {repoGroups.map(({ repo, organization, versions }) => (
                 <div
                   key={repo.id}
                   className="rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden"
@@ -185,12 +187,36 @@ export default function Home() {
                     className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-                        <FolderGit2 className="w-5 h-5 text-white/60" />
-                      </div>
+                      {/* Organization Avatar or Default Icon */}
+                      {organization?.avatar_url ? (
+                        <img
+                          src={organization.avatar_url}
+                          alt={organization.name}
+                          className="w-10 h-10 rounded-xl"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                          <FolderGit2 className="w-5 h-5 text-white/60" />
+                        </div>
+                      )}
                       <div className="text-left">
-                        <div className="font-medium text-white/90">
-                          {repo.owner}/{repo.name}
+                        <div className="flex items-center gap-2">
+                          {/* Organization Badge */}
+                          {organization && (
+                            <a
+                              href={`https://github.com/${organization.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 text-xs font-medium hover:bg-violet-500/20 transition-colors"
+                            >
+                              <Building2 className="w-3 h-3" />
+                              {organization.name}
+                            </a>
+                          )}
+                          <span className="font-medium text-white/90">
+                            {repo.owner}/{repo.name}
+                          </span>
                         </div>
                         <div className="text-sm text-gray-500 mt-0.5">
                           {versions.length} {versions.length === 1 ? "commit" : "commits"}
@@ -201,6 +227,15 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {/* Roadmap Link */}
+                      <Link
+                        href={`/roadmap/${repo.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 text-xs font-medium hover:bg-violet-500/20 transition-colors"
+                      >
+                        <MapIcon className="w-3.5 h-3.5" />
+                        Roadmap
+                      </Link>
                       {expandedRepos.has(repo.id) ? (
                         <ChevronDown className="w-5 h-5 text-gray-500" />
                       ) : (

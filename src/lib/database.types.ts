@@ -137,6 +137,39 @@ export type Database = {
           },
         ]
       }
+      organizations: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          description: string | null
+          github_id: string | null
+          id: string
+          name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          github_id?: string | null
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          github_id?: string | null
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       repo_versions: {
         Row: {
           branch: string | null
@@ -184,6 +217,7 @@ export type Database = {
           default_branch: string | null
           id: string
           name: string
+          organization_id: string | null
           owner: string
           updated_at: string | null
           workspace_id: string
@@ -193,6 +227,7 @@ export type Database = {
           default_branch?: string | null
           id?: string
           name: string
+          organization_id?: string | null
           owner: string
           updated_at?: string | null
           workspace_id: string
@@ -202,16 +237,65 @@ export type Database = {
           default_branch?: string | null
           id?: string
           name?: string
+          organization_id?: string | null
           owner?: string
           updated_at?: string | null
           workspace_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "repos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "repos_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadmaps: {
+        Row: {
+          content: string
+          created_at: string | null
+          github_path: string | null
+          id: string
+          last_synced_at: string | null
+          repo_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string | null
+          github_path?: string | null
+          id?: string
+          last_synced_at?: string | null
+          repo_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          github_path?: string | null
+          id?: string
+          last_synced_at?: string | null
+          repo_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadmaps_repo_id_fkey"
+            columns: ["repo_id"]
+            isOneToOne: false
+            referencedRelation: "repos"
             referencedColumns: ["id"]
           },
         ]

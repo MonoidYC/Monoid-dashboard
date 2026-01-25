@@ -4,6 +4,7 @@ import type {
   CodeEdgeRow,
   RepoVersionRow,
   RepoRow,
+  OrganizationRow,
   GraphNode,
   GraphEdge,
   CodeNodeData,
@@ -11,10 +12,11 @@ import type {
 } from "./types";
 import { detectCluster } from "./types";
 
-// Fetch all repo versions with their repo details
+// Fetch all repo versions with their repo and organization details
 export async function getRepoVersions(): Promise<{
   version: RepoVersionRow;
   repo: RepoRow;
+  organization: OrganizationRow | null;
 }[]> {
   const supabase = getSupabase();
 
@@ -43,17 +45,36 @@ export async function getRepoVersions(): Promise<{
     return [];
   }
 
-  // Create a map for quick lookup
+  // Get unique organization IDs (filter out nulls)
+  const orgIds = Array.from(
+    new Set(repos.map((r) => r.organization_id).filter((id): id is string => id !== null))
+  );
+
+  // Fetch all organizations if any
+  let orgMap = new Map<string, OrganizationRow>();
+  if (orgIds.length > 0) {
+    const { data: orgs, error: orgError } = await supabase
+      .from("organizations")
+      .select("*")
+      .in("id", orgIds);
+
+    if (!orgError && orgs) {
+      orgMap = new Map(orgs.map((o) => [o.id, o]));
+    }
+  }
+
+  // Create a map for quick repo lookup
   const repoMap = new Map(repos.map((r) => [r.id, r]));
 
-  // Combine versions with their repos
+  // Combine versions with their repos and organizations
   return versions
     .map((version) => {
       const repo = repoMap.get(version.repo_id);
       if (!repo) return null;
-      return { version, repo };
+      const organization = repo.organization_id ? orgMap.get(repo.organization_id) || null : null;
+      return { version, repo, organization };
     })
-    .filter((item): item is { version: RepoVersionRow; repo: RepoRow } => item !== null);
+    .filter((item): item is { version: RepoVersionRow; repo: RepoRow; organization: OrganizationRow | null } => item !== null);
 }
 
 // Fetch repo version with repo details

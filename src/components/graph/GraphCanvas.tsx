@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -46,6 +46,7 @@ interface GraphCanvasProps {
   initialEdges: GraphEdge[];
   repo?: RepoRow | null;
   version?: RepoVersionRow | null;
+  highlightNodeId?: string;
 }
 
 export function GraphCanvas({
@@ -53,9 +54,20 @@ export function GraphCanvas({
   initialEdges,
   repo,
   version,
+  highlightNodeId,
 }: GraphCanvasProps) {
   // Selected node for detail panel
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  
+  // Auto-select highlighted node from URL param
+  useEffect(() => {
+    if (highlightNodeId && initialNodes.length > 0) {
+      const nodeToHighlight = initialNodes.find((n) => n.id === highlightNodeId);
+      if (nodeToHighlight) {
+        setSelectedNode(nodeToHighlight);
+      }
+    }
+  }, [highlightNodeId, initialNodes]);
   
   // Modal state
   const [isNewNodeModalOpen, setIsNewNodeModalOpen] = useState(false);

@@ -7,6 +7,7 @@ export type CodeEdgeRow = Database["public"]["Tables"]["code_edges"]["Row"];
 export type RepoVersionRow = Database["public"]["Tables"]["repo_versions"]["Row"];
 export type RepoRow = Database["public"]["Tables"]["repos"]["Row"];
 export type WorkspaceRow = Database["public"]["Tables"]["workspaces"]["Row"];
+export type OrganizationRow = Database["public"]["Tables"]["organizations"]["Row"];
 
 // Enum types
 export type NodeType = Database["public"]["Enums"]["node_type"];
