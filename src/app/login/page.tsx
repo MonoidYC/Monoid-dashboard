@@ -31,14 +31,18 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
       
-      // Check if we're in a VS Code webview
-      if (isVSCodeWebview()) {
-        // In webview - get OAuth URL and open in external browser
+      // Check for `from=vscode` URL param (opened from VS Code sign in command)
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromVscode = urlParams.get('from') === 'vscode';
+
+      // Check if we're in a VS Code webview or opened from VS Code
+      if (isVSCodeWebview() || fromVscode) {
+        // Get OAuth URL and open in external browser (or redirect if already in browser)
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: "github",
           options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
-            skipBrowserRedirect: true, // Don't redirect, we'll handle it
+            redirectTo: `${window.location.origin}/auth/callback?from=vscode`,
+            skipBrowserRedirect: isVSCodeWebview(), // Only skip redirect if in webview
           },
         });
 
@@ -48,12 +52,13 @@ export default function LoginPage() {
           return;
         }
 
-        if (data.url) {
-          // Send message to parent webview to open in external browser
+        if (isVSCodeWebview() && data.url) {
+          // In webview - send message to parent to open in external browser
           window.parent.postMessage({ type: 'openAuthUrl', url: data.url }, '*');
-          setAuthMessage('Opening GitHub in your browser. After signing in, click "Reload" in the toolbar.');
+          setAuthMessage('Opening GitHub in your browser. After signing in, click "Connect to VS Code".');
           setIsLoading(false);
         }
+        // If not in webview but from=vscode, the OAuth will redirect normally
       } else {
         // Normal browser - standard OAuth flow
         const { error } = await supabase.auth.signInWithOAuth({

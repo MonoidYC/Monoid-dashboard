@@ -1,16 +1,37 @@
 "use client";
 
-import { useEffect, createContext, useContext, useState, ReactNode } from "react";
+import { useEffect, createContext, useContext, useState, ReactNode, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase";
+
+interface AuthSession {
+  access_token: string;
+  refresh_token: string;
+  expires_at?: number;
+  user?: {
+    id: string;
+    email?: string;
+    user_metadata?: {
+      avatar_url?: string;
+      full_name?: string;
+      user_name?: string;
+    };
+  };
+}
 
 interface WebviewContextType {
   isWebview: boolean;
   openExternal: (url: string) => void;
+  authSession: AuthSession | null;
+  requestSignIn: () => void;
+  requestSignOut: () => void;
 }
 
 const WebviewContext = createContext<WebviewContextType>({
   isWebview: false,
   openExternal: () => {},
+  authSession: null,
+  requestSignIn: () => {},
+  requestSignOut: () => {},
 });
 
 export function useWebview() {
@@ -19,6 +40,22 @@ export function useWebview() {
 
 export function WebviewProvider({ children }: { children: ReactNode }) {
   const [isWebview, setIsWebview] = useState(false);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+
+  // Request sign in from VS Code
+  const requestSignIn = useCallback(() => {
+    if (isWebview) {
+      window.parent.postMessage({ type: 'requestSignIn' }, '*');
+    }
+  }, [isWebview]);
+
+  // Request sign out from VS Code
+  const requestSignOut = useCallback(() => {
+    if (isWebview) {
+      window.parent.postMessage({ type: 'requestSignOut' }, '*');
+      setAuthSession(null);
+    }
+  }, [isWebview]);
 
   useEffect(() => {
     // Detect if we're in a VS Code webview
@@ -42,6 +79,11 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
     // Also store globally for non-React code
     (window as any).__isVSCodeWebview = detected;
 
+    // If in webview, request auth session from VS Code
+    if (detected) {
+      window.parent.postMessage({ type: 'requestAuthSession' }, '*');
+    }
+
     // If in webview, patch Supabase auth to handle OAuth properly
     if (detected) {
       try {
@@ -52,28 +94,11 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
         (supabase.auth as any).signInWithOAuth = async (credentials: any) => {
           console.log('[Monoid Auth] Intercepting OAuth call in webview');
           
-          // Force skipBrowserRedirect and get the URL instead
-          const result = await originalSignInWithOAuth({
-            ...credentials,
-            options: {
-              ...credentials.options,
-              skipBrowserRedirect: true,
-              redirectTo: credentials.options?.redirectTo || window.location.origin,
-            }
-          });
+          // Request sign in through VS Code instead
+          window.parent.postMessage({ type: 'requestSignIn' }, '*');
           
-          if (result.data?.url) {
-            // Open in external browser via parent webview
-            window.parent.postMessage({ type: 'openAuthUrl', url: result.data.url }, '*');
-            console.log('[Monoid Auth] Sent OAuth URL to parent:', result.data.url);
-            
-            // Show user feedback
-            setTimeout(() => {
-              alert('Opening GitHub authentication in your browser.\n\nAfter signing in, click "Reload" in the toolbar to refresh.');
-            }, 100);
-          }
-          
-          return result;
+          // Return a "pending" result
+          return { data: { url: null, provider: 'github' }, error: null };
         };
         
         console.log('[Monoid] Patched Supabase auth for webview context');
@@ -82,11 +107,36 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Listen for VS Code webview identification message
+    // Listen for messages from VS Code
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'vscodeWebview' && event.data?.isWebview) {
         setIsWebview(true);
         (window as any).__isVSCodeWebview = true;
+        // Request auth session when we know we're in a webview
+        window.parent.postMessage({ type: 'requestAuthSession' }, '*');
+      }
+      
+      // Handle auth session from VS Code
+      if (event.data?.type === 'setAuthSession' && event.data?.session) {
+        console.log('[Monoid] Received auth session from VS Code');
+        setAuthSession(event.data.session);
+        
+        // Also try to set the session in Supabase client
+        try {
+          const supabase = getSupabase();
+          supabase.auth.setSession({
+            access_token: event.data.session.access_token,
+            refresh_token: event.data.session.refresh_token,
+          }).then(({ error }) => {
+            if (error) {
+              console.warn('[Monoid] Could not set Supabase session:', error);
+            } else {
+              console.log('[Monoid] Supabase session set successfully');
+            }
+          });
+        } catch (e) {
+          console.warn('[Monoid] Could not set Supabase session:', e);
+        }
       }
     };
 
@@ -187,16 +237,22 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const openExternal = (url: string) => {
+  const openExternal = useCallback((url: string) => {
     if (isWebview) {
       window.parent.postMessage({ type: 'openExternalUrl', url }, '*');
     } else {
       window.open(url, '_blank');
     }
-  };
+  }, [isWebview]);
 
   return (
-    <WebviewContext.Provider value={{ isWebview, openExternal }}>
+    <WebviewContext.Provider value={{ 
+      isWebview, 
+      openExternal, 
+      authSession, 
+      requestSignIn, 
+      requestSignOut 
+    }}>
       {children}
     </WebviewContext.Provider>
   );
