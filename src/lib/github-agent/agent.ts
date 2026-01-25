@@ -506,14 +506,23 @@ Use this format for your response:
    - graph LR (for showing component connections)
 
 Use these conventions in your diagram:
-- Use solid lines for existing relationships
-- Use dashed lines (-.->)for new/proposed relationships
+- Use solid lines (-->) for existing relationships
+- Use dashed lines (-..->) for new/proposed relationships  
 - Mark new components with "NEW:" prefix in their labels
 - Mark modified components with "MOD:" prefix in their labels
+- Use simple alphanumeric node IDs without special characters
+- Keep node labels short and simple (no special characters like brackets or quotes inside labels)
 
-Keep the diagram focused and readable (max 15-20 nodes).
+Keep the diagram focused and readable (max 10-15 nodes).
 Do NOT use emojis.
-Do NOT wrap the mermaid code in markdown code blocks - just output the raw mermaid syntax.`;
+
+IMPORTANT: Wrap the mermaid diagram in triple backticks with "mermaid" language tag like this:
+\`\`\`mermaid
+graph LR
+  A[Component A] --> B[Component B]
+\`\`\`
+
+Make sure the diagram is complete and valid Mermaid syntax.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -535,14 +544,30 @@ Do NOT wrap the mermaid code in markdown code blocks - just output the raw merma
       return createVisualizationErrorResult("No visualization generated");
     }
 
-    // Extract Mermaid diagram from response
-    const mermaidMatch = responseText.match(/(flowchart|graph|classDiagram|sequenceDiagram|stateDiagram)[\s\S]*?(?=\n\n|$)/i);
-    const mermaidDiagram = mermaidMatch ? mermaidMatch[0].trim() : "";
+    // Extract Mermaid diagram from code block (```mermaid ... ```)
+    let mermaidDiagram = "";
+    let explanation = "";
 
-    // Extract explanation (text before the diagram)
-    const explanation = mermaidMatch
-      ? responseText.substring(0, responseText.indexOf(mermaidMatch[0])).trim()
-      : responseText;
+    // Try to extract from code block first
+    const codeBlockMatch = responseText.match(/```mermaid\s*([\s\S]*?)```/i);
+    if (codeBlockMatch) {
+      mermaidDiagram = codeBlockMatch[1].trim();
+      // Explanation is text before the code block
+      explanation = responseText.substring(0, responseText.indexOf("```mermaid")).trim();
+    } else {
+      // Fallback: try to find raw mermaid syntax
+      const rawMatch = responseText.match(/((?:flowchart|graph|classDiagram|sequenceDiagram|stateDiagram)\s+(?:TB|TD|BT|RL|LR)?[\s\S]+)/i);
+      if (rawMatch) {
+        mermaidDiagram = rawMatch[1].trim();
+        explanation = responseText.substring(0, responseText.indexOf(rawMatch[1])).trim();
+      }
+    }
+
+    // Validate the diagram has proper structure
+    if (mermaidDiagram && !mermaidDiagram.match(/^(flowchart|graph|classDiagram|sequenceDiagram|stateDiagram)/i)) {
+      console.error("Invalid mermaid diagram structure:", mermaidDiagram.substring(0, 100));
+      mermaidDiagram = "";
+    }
 
     // Extract affected nodes from diagram
     const affectedNodes: string[] = [];
