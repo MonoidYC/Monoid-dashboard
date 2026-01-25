@@ -1,17 +1,87 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertCircle, FlaskConical } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, FlaskConical, Github } from "lucide-react";
 import { TestCanvas } from "@/components/test";
 import { useTestData } from "@/components/test/hooks";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { useWebview } from "@/components/providers/WebviewProvider";
+import { getSupabase } from "@/lib/supabase";
 
 export default function TestsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const versionId = params.versionId as string;
+  const isEmbed = searchParams.get("embed") === "true";
+  
+  const { isWebview, authSession, requestSignIn } = useWebview();
+  const [isAuthReady, setIsAuthReady] = useState(!isEmbed);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  const { nodes, edges, repo, version, isLoading, error } = useTestData(versionId);
+  // For embedded views, wait for auth to be established
+  useEffect(() => {
+    if (!isEmbed) {
+      setIsAuthReady(true);
+      setAuthChecked(true);
+      return;
+    }
+
+    const checkAuth = async () => {
+      try {
+        const supabase = getSupabase();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log('[TestsPage] User already authenticated:', user.email);
+          setIsAuthReady(true);
+        }
+      } catch (e) {
+        console.log('[TestsPage] No existing auth session');
+      }
+      setAuthChecked(true);
+    };
+
+    checkAuth();
+
+    if (authSession) {
+      console.log('[TestsPage] Auth session received from webview context');
+      setIsAuthReady(true);
+    }
+  }, [isEmbed, authSession]);
+
+  const { nodes, edges, repo, version, isLoading, error, refetch } = useTestData(
+    isAuthReady ? versionId : ""
+  );
+
+  // Refetch when auth becomes ready
+  useEffect(() => {
+    if (isAuthReady && versionId) {
+      refetch();
+    }
+  }, [isAuthReady, versionId]);
+
+  // Show sign-in prompt for embedded views without auth
+  if (isEmbed && authChecked && !isAuthReady && !authSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#08080a]">
+        <div className="text-center max-w-md">
+          <FlaskConical className="w-12 h-12 text-lime-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2 text-white">Sign in required</h2>
+          <p className="text-gray-400 mb-6">
+            Sign in with GitHub to view your test results.
+          </p>
+          <button
+            onClick={requestSignIn}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors"
+          >
+            <Github className="w-5 h-5" />
+            Sign in with GitHub
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (isLoading) {

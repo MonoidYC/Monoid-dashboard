@@ -23,6 +23,12 @@ export function useGraphData(versionId: string): UseGraphDataResult {
   const [error, setError] = useState<Error | null>(null);
 
   const fetchData = async () => {
+    // Skip fetching if no versionId (waiting for auth)
+    if (!versionId) {
+      setIsLoading(true);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -49,7 +55,9 @@ export function useGraphData(versionId: string): UseGraphDataResult {
   };
 
   useEffect(() => {
-    fetchData();
+    if (versionId) {
+      fetchData();
+    }
   }, [versionId]);
 
   return {
