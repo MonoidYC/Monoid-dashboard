@@ -79,9 +79,17 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
     // Also store globally for non-React code
     (window as any).__isVSCodeWebview = detected;
 
-    // If in webview, request auth session from VS Code
+    // If in webview, notify parent we're ready and request auth session
     if (detected) {
+      // Send ready message so webview knows iframe is loaded
+      window.parent.postMessage({ type: 'ready' }, '*');
+      // Request auth session
       window.parent.postMessage({ type: 'requestAuthSession' }, '*');
+      
+      // Also request again after a short delay in case of timing issues
+      setTimeout(() => {
+        window.parent.postMessage({ type: 'requestAuthSession' }, '*');
+      }, 1000);
     }
 
     // If in webview, patch Supabase auth to handle OAuth properly
@@ -109,7 +117,13 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
 
     // Listen for messages from VS Code
     const handleMessage = (event: MessageEvent) => {
+      // Log all messages for debugging
+      if (event.data?.type) {
+        console.log('[Monoid] Received message:', event.data.type);
+      }
+      
       if (event.data?.type === 'vscodeWebview' && event.data?.isWebview) {
+        console.log('[Monoid] Detected VS Code webview via message');
         setIsWebview(true);
         (window as any).__isVSCodeWebview = true;
         // Request auth session when we know we're in a webview
@@ -117,25 +131,27 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
       }
       
       // Handle auth session from VS Code
-      if (event.data?.type === 'setAuthSession' && event.data?.session) {
-        console.log('[Monoid] Received auth session from VS Code');
-        setAuthSession(event.data.session);
+      if (event.data?.type === 'setAuthSession') {
+        console.log('[Monoid] Received setAuthSession message, session exists:', !!event.data?.session);
+        if (event.data?.session) {
+          setAuthSession(event.data.session);
         
-        // Also try to set the session in Supabase client
-        try {
-          const supabase = getSupabase();
-          supabase.auth.setSession({
-            access_token: event.data.session.access_token,
-            refresh_token: event.data.session.refresh_token,
-          }).then(({ error }) => {
-            if (error) {
-              console.warn('[Monoid] Could not set Supabase session:', error);
-            } else {
-              console.log('[Monoid] Supabase session set successfully');
-            }
-          });
-        } catch (e) {
-          console.warn('[Monoid] Could not set Supabase session:', e);
+          // Also try to set the session in Supabase client
+          try {
+            const supabase = getSupabase();
+            supabase.auth.setSession({
+              access_token: event.data.session.access_token,
+              refresh_token: event.data.session.refresh_token,
+            }).then(({ error }) => {
+              if (error) {
+                console.warn('[Monoid] Could not set Supabase session:', error);
+              } else {
+                console.log('[Monoid] Supabase session set successfully');
+              }
+            });
+          } catch (e) {
+            console.warn('[Monoid] Could not set Supabase session:', e);
+          }
         }
       }
     };
