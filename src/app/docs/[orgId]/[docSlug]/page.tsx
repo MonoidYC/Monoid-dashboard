@@ -16,6 +16,7 @@ import {
   FolderGit2,
   Eye,
   EyeOff,
+  Pencil,
 } from "lucide-react";
 import { DocMarkdownEditor } from "@/components/docs";
 import {
@@ -69,8 +70,11 @@ export default function DocEditorPage() {
     return content !== originalContent;
   }, [isNew, content, originalContent]);
 
-  // Show preview panel
+  // Show preview panel (split view in edit mode)
   const [showPreview, setShowPreview] = useState(false);
+  
+  // View mode: published docs open in read-only mode by default
+  const [isViewMode, setIsViewMode] = useState(false);
   
   // Preview container ref for handling node link clicks
   const previewRef = useRef<HTMLDivElement>(null);
@@ -162,6 +166,9 @@ export default function DocEditorPage() {
         setDescription(existingDoc.description || "");
         setRepoId(existingDoc.repo_id);
         setIsPublished(existingDoc.is_published);
+        
+        // Published docs open in read-only view mode by default
+        setIsViewMode(existingDoc.is_published);
 
         // Try to load content from storage first, fall back to database
         const { content: storageContent } = await loadFromStorage(
@@ -350,13 +357,19 @@ export default function DocEditorPage() {
                   <FileText className="w-4 h-4 text-violet-400" />
                 </div>
                 <div className="min-w-0">
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Document Title"
-                    className="block w-full bg-transparent text-white font-semibold focus:outline-none truncate text-base"
-                  />
+                  {isViewMode ? (
+                    <h1 className="block w-full text-white font-semibold truncate text-base">
+                      {title || "Untitled Document"}
+                    </h1>
+                  ) : (
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Document Title"
+                      className="block w-full bg-transparent text-white font-semibold focus:outline-none truncate text-base"
+                    />
+                  )}
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     {organization && (
                       <span className="flex items-center gap-1">
@@ -377,114 +390,134 @@ export default function DocEditorPage() {
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Repo Selector */}
-              <select
-                value={repoId || ""}
-                onChange={(e) => setRepoId(e.target.value || null)}
-                className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500 max-w-[180px]"
-              >
-                <option value="">All Repos</option>
-                {repos.map((repo) => (
-                  <option key={repo.id} value={repo.id}>
-                    {repo.name}
-                  </option>
-                ))}
-              </select>
-
-              {/* Preview Toggle */}
-              <button
-                onClick={() => setShowPreview(!showPreview)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                  showPreview
-                    ? "bg-violet-500/20 text-violet-400"
-                    : "bg-white/5 text-gray-400 hover:text-white"
-                }`}
-              >
-                {showPreview ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-                <span className="hidden sm:inline">Preview</span>
-              </button>
-
-              {/* Publish Toggle */}
-              <button
-                onClick={handleTogglePublish}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  isPublished
-                    ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                    : "bg-gray-500/10 text-gray-400 hover:bg-gray-500/20"
-                }`}
-              >
-                {isPublished ? (
-                  <>
-                    <Globe className="w-4 h-4" />
-                    <span className="hidden sm:inline">Published</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span className="hidden sm:inline">Draft</span>
-                  </>
-                )}
-              </button>
-
-              {/* Delete */}
-              {!isNew && (
+              {/* View Mode: Show Edit button */}
+              {isViewMode ? (
                 <button
-                  onClick={handleDelete}
-                  className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-400"
-                  title="Delete document"
+                  onClick={() => setIsViewMode(false)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Pencil className="w-4 h-4" />
+                  <span>Edit</span>
                 </button>
+              ) : (
+                <>
+                  {/* Repo Selector */}
+                  <select
+                    value={repoId || ""}
+                    onChange={(e) => setRepoId(e.target.value || null)}
+                    className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500 max-w-[180px]"
+                  >
+                    <option value="">All Repos</option>
+                    {repos.map((repo) => (
+                      <option key={repo.id} value={repo.id}>
+                        {repo.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Preview Toggle */}
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      showPreview
+                        ? "bg-violet-500/20 text-violet-400"
+                        : "bg-white/5 text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    {showPreview ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">Preview</span>
+                  </button>
+                </>
               )}
 
-              {/* Save Button */}
-              <button
-                onClick={handleSave}
-                disabled={isSaving || (!hasChanges && !isNew)}
-                className="flex items-center gap-2 px-4 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                <span>Save</span>
-              </button>
+              {/* Show status badge in view mode, full controls in edit mode */}
+              {isViewMode ? (
+                // In view mode, just show the publish status as a badge
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
+                    isPublished
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-gray-500/10 text-gray-400"
+                  }`}
+                >
+                  {isPublished ? (
+                    <>
+                      <Globe className="w-4 h-4" />
+                      <span>Published</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Draft</span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Publish Toggle */}
+                  <button
+                    onClick={handleTogglePublish}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      isPublished
+                        ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                        : "bg-gray-500/10 text-gray-400 hover:bg-gray-500/20"
+                    }`}
+                  >
+                    {isPublished ? (
+                      <>
+                        <Globe className="w-4 h-4" />
+                        <span className="hidden sm:inline">Published</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4" />
+                        <span className="hidden sm:inline">Draft</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Delete */}
+                  {!isNew && (
+                    <button
+                      onClick={handleDelete}
+                      className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-400"
+                      title="Delete document"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {/* Save Button */}
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving || (!hasChanges && !isNew)}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>Save</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Editor */}
+      {/* Main Content */}
       <main className="flex-1 flex">
-        {/* Editor Panel */}
-        <div
-          className={`${
-            showPreview ? "w-1/2" : "w-full"
-          } border-r border-white/5 transition-all`}
-        >
-          <DocMarkdownEditor
-            value={content}
-            onChange={setContent}
-            orgId={orgId}
-            repoId={repoId}
-            placeholder={`Start writing documentation...\n\nTip: Use [[Node: ComponentName]] to link to code components.${
-              repoId
-                ? "\n\nAutocomplete is filtered to the selected repository."
-                : "\n\nAutocomplete searches across all repositories in this organization."
-            }`}
-          />
-        </div>
-
-        {/* Preview Panel */}
-        {showPreview && (
+        {isViewMode ? (
+          /* View Mode: Full-width read-only preview */
           <div 
             ref={previewRef}
-            className="w-1/2 overflow-y-auto p-6"
+            className="w-full overflow-y-auto p-8 max-w-4xl mx-auto"
             onClick={handlePreviewClick}
           >
             <div className="prose prose-invert max-w-none">
@@ -496,12 +529,66 @@ export default function DocEditorPage() {
                   }}
                 />
               ) : (
-                <p className="text-gray-500 italic">
-                  Start writing to see preview...
-                </p>
+                <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                  <FileText className="w-12 h-12 mb-4 opacity-50" />
+                  <p className="text-lg">This document is empty</p>
+                  <button
+                    onClick={() => setIsViewMode(false)}
+                    className="mt-4 flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Start Writing
+                  </button>
+                </div>
               )}
             </div>
           </div>
+        ) : (
+          /* Edit Mode: Editor with optional preview panel */
+          <>
+            {/* Editor Panel */}
+            <div
+              className={`${
+                showPreview ? "w-1/2" : "w-full"
+              } border-r border-white/5 transition-all`}
+            >
+              <DocMarkdownEditor
+                value={content}
+                onChange={setContent}
+                orgId={orgId}
+                repoId={repoId}
+                placeholder={`Start writing documentation...\n\nTip: Use [[Node: ComponentName]] to link to code components.${
+                  repoId
+                    ? "\n\nAutocomplete is filtered to the selected repository."
+                    : "\n\nAutocomplete searches across all repositories in this organization."
+                }`}
+              />
+            </div>
+
+            {/* Preview Panel */}
+            {showPreview && (
+              <div 
+                ref={previewRef}
+                className="w-1/2 overflow-y-auto p-6"
+                onClick={handlePreviewClick}
+              >
+                <div className="prose prose-invert max-w-none">
+                  {content ? (
+                    <div
+                      className="markdown-preview"
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(content),
+                      }}
+                    />
+                  ) : (
+                    <p className="text-gray-500 italic">
+                      Start writing to see preview...
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
