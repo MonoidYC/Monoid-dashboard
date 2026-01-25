@@ -32,12 +32,6 @@ export function useTestData(versionId: string): UseTestDataResult {
   const [error, setError] = useState<Error | null>(null);
 
   const fetchData = async () => {
-    // Skip fetching if no versionId (waiting for auth)
-    if (!versionId) {
-      setIsLoading(true);
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
@@ -74,9 +68,7 @@ export function useTestData(versionId: string): UseTestDataResult {
   };
 
   useEffect(() => {
-    if (versionId) {
-      fetchData();
-    }
+    fetchData();
   }, [versionId]);
 
   return {

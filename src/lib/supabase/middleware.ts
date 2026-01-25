@@ -62,7 +62,7 @@ export async function updateSession(request: NextRequest) {
     "/share",
     "/api/mcp",
     "/api/docs",
-    "/api/auth/vscode-session", // Allow VS Code to set session
+    "/api/auth/vscode-session",
   ];
 
   const isPublicRoute = publicRoutes.some(
@@ -71,15 +71,14 @@ export async function updateSession(request: NextRequest) {
       request.nextUrl.pathname.startsWith(route + "/")
   );
 
-  // Check if this is a VS Code webview embed request
-  // VS Code adds ?embed=true to allow initial page load without cookies
-  // The page will receive auth tokens via postMessage and handle auth client-side
-  // Note: This only allows the HTML to load - actual data access still requires valid auth via RLS
-  const isEmbedRequest = request.nextUrl.searchParams.get("embed") === "true";
+  // VS Code webview bypass: Skip auth entirely when ?vscode=true is present
+  // This is a proof-of-concept approach - VS Code embeds get full access without auth
+  // Normal browser users still require authentication
+  const isVSCodeRequest = request.nextUrl.searchParams.get("vscode") === "true";
 
   // Redirect to login if not authenticated and not on a public route
-  // Exception: Allow embed requests to load (they handle auth client-side via postMessage)
-  if (!user && !isPublicRoute && !isEmbedRequest) {
+  // Exception: VS Code webview requests bypass auth entirely
+  if (!user && !isPublicRoute && !isVSCodeRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
