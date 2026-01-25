@@ -11,6 +11,7 @@ interface NodeAutocompleteProps {
   query: string;
   onSelect: (node: AutocompleteNode) => void;
   onClose: () => void;
+  onOpenSearch?: () => void; // Opens the full search modal
   embedded?: boolean; // When true, renders without outer container styling
 }
 
@@ -19,6 +20,7 @@ export function NodeAutocomplete({
   query,
   onSelect,
   onClose,
+  onOpenSearch,
   embedded = false,
 }: NodeAutocompleteProps) {
   const [nodes, setNodes] = useState<AutocompleteNode[]>([]);
@@ -120,12 +122,23 @@ export function NodeAutocomplete({
     <div ref={containerRef} className={containerClasses}>
       {/* Header - only show when not embedded */}
       {!embedded && (
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
+        <button
+          onClick={() => {
+            if (onOpenSearch) {
+              onClose();
+              onOpenSearch();
+            }
+          }}
+          className="w-full flex items-center gap-2 px-3 py-2.5 border-b border-white/5 hover:bg-white/5 transition-colors text-left"
+        >
           <Search className="w-4 h-4 text-gray-500" />
-          <span className="text-sm text-gray-400">
-            {query ? `Searching "${query}"...` : "Select a component"}
+          <span className="text-sm text-gray-400 flex-1">
+            {query ? `Searching "${query}"...` : "Search components..."}
           </span>
-        </div>
+          {onOpenSearch && (
+            <kbd className="px-1.5 py-0.5 rounded bg-white/5 text-[10px] text-gray-500">⌘K</kbd>
+          )}
+        </button>
       )}
 
       {/* Results */}

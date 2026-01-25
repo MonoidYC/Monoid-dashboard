@@ -1,10 +1,12 @@
 import { getSupabase } from "../supabase";
+import { loadFromStorage } from "./mutations";
 import type { RoadmapRow, OrganizationRow, AutocompleteNode } from "./types";
 
-// Fetch roadmap for a repository
+// Fetch roadmap for a repository (checks storage first, then falls back to database)
 export async function getRoadmapByRepoId(repoId: string): Promise<RoadmapRow | null> {
   const supabase = getSupabase();
   
+  // First try to get metadata from database
   const { data, error } = await supabase
     .from("roadmaps")
     .select("*")
@@ -13,13 +15,39 @@ export async function getRoadmapByRepoId(repoId: string): Promise<RoadmapRow | n
   
   if (error) {
     if (error.code === "PGRST116") {
-      // No rows found
+      // No rows found - try loading from storage only
+      const { content: storageContent } = await loadFromStorage(repoId);
+      if (storageContent) {
+        // Return a synthetic roadmap row with storage content
+        return {
+          id: "",
+          repo_id: repoId,
+          title: "Roadmap",
+          content: storageContent,
+          github_path: null,
+          last_synced_at: null,
+          created_at: null,
+          updated_at: null,
+        };
+      }
       return null;
     }
     console.error("Error fetching roadmap:", error);
     return null;
   }
   
+  // Try to load content from storage (preferred source)
+  const { content: storageContent, error: storageError } = await loadFromStorage(repoId);
+  
+  if (!storageError && storageContent) {
+    // Use storage content as the authoritative source
+    return {
+      ...data,
+      content: storageContent,
+    };
+  }
+  
+  // Fall back to database content
   return data;
 }
 

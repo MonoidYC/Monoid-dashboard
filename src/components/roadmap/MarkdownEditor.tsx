@@ -280,6 +280,10 @@ export function MarkdownEditor({
             query={autocompleteQuery}
             onSelect={handleSelectNode}
             onClose={() => setShowAutocomplete(false)}
+            onOpenSearch={() => {
+              setShowSearchBar(true);
+              setTimeout(() => searchInputRef.current?.focus(), 0);
+            }}
           />
         </div>
       )}
