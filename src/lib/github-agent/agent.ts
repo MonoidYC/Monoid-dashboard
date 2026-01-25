@@ -1,13 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { GoogleGenAI } from "@google/genai";
 import type {
   FeasibilityAnalysisParams,
   FeasibilityAnalysisResult,
   CodeNodeContext,
-  GeminiResponse,
 } from "./types";
-
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 /**
  * Analyze the feasibility of a GitHub issue using codebase context and Gemini
@@ -163,7 +160,7 @@ function buildCodeContext(nodes: CodeNodeContext[]): string {
 }
 
 /**
- * Call Gemini API for feasibility analysis
+ * Call Gemini API for feasibility analysis using Gemini 3.0 Flash
  */
 async function callGeminiForAnalysis(
   issueTitle: string,
@@ -218,41 +215,21 @@ Start with an emoji summary:
 Keep the response concise but actionable. Focus on practical insights.`;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    // Initialize Gemini 3.0 client
+    const ai = new GoogleGenAI({ apiKey });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.0-flash-preview",
+      contents: prompt,
+      config: {
+        temperature: 0.3,
+        topK: 40,
+        topP: 0.9,
+        maxOutputTokens: 2048,
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.9,
-          maxOutputTokens: 2048,
-        },
-      }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", errorText);
-      return createErrorResult("Failed to analyze issue with AI");
-    }
-
-    const data: GeminiResponse = await response.json();
-
-    if (data.error) {
-      console.error("Gemini API error:", data.error.message);
-      return createErrorResult("AI analysis failed");
-    }
-
-    const analysisText =
-      data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    const analysisText = response.text?.trim() || "";
 
     if (!analysisText) {
       return createErrorResult("No analysis generated");

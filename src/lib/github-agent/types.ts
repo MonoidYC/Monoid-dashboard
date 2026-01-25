@@ -133,17 +133,3 @@ export interface GitHubCommentResponse {
   created_at: string;
 }
 
-// Gemini API Types (matching existing pattern)
-
-export interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-  error?: {
-    message: string;
-  };
-}
