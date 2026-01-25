@@ -31,6 +31,7 @@ export interface CodeNodeData extends Record<string, unknown> {
   stableId: string;
   metadata: Record<string, unknown>;
   summary: string | null; // Natural language summary of what this node does
+  githubLink: string | null; // Direct GitHub permalink to the code file/lines
 
   // Computed
   cluster: ClusterType;

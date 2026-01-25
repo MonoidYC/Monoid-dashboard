@@ -75,6 +75,7 @@ export type Database = {
           end_column: number | null
           end_line: number
           file_path: string
+          github_link: string | null
           id: string
           language: string | null
           metadata: Json | null
@@ -93,6 +94,7 @@ export type Database = {
           end_column?: number | null
           end_line: number
           file_path: string
+          github_link?: string | null
           id?: string
           language?: string | null
           metadata?: Json | null
@@ -111,6 +113,7 @@ export type Database = {
           end_column?: number | null
           end_line?: number
           file_path?: string
+          github_link?: string | null
           id?: string
           language?: string | null
           metadata?: Json | null
@@ -209,6 +212,132 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_coverage_edges: {
+        Row: {
+          code_node_id: string
+          coverage_type: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          test_node_id: string
+          version_id: string
+        }
+        Insert: {
+          code_node_id: string
+          coverage_type: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          test_node_id: string
+          version_id: string
+        }
+        Update: {
+          code_node_id?: string
+          coverage_type?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          test_node_id?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_coverage_edges_code_node_id_fkey"
+            columns: ["code_node_id"]
+            isOneToOne: false
+            referencedRelation: "code_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_coverage_edges_test_node_id_fkey"
+            columns: ["test_node_id"]
+            isOneToOne: false
+            referencedRelation: "test_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_coverage_edges_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "repo_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_nodes: {
+        Row: {
+          command: string | null
+          created_at: string | null
+          description: string | null
+          end_line: number | null
+          file_path: string | null
+          github_link: string | null
+          id: string
+          last_duration_ms: number | null
+          last_error: string | null
+          last_run_at: string | null
+          last_status: string | null
+          metadata: Json | null
+          name: string
+          runner: string | null
+          source_type: string
+          stable_id: string
+          start_line: number | null
+          test_type: Database["public"]["Enums"]["test_type"]
+          version_id: string
+        }
+        Insert: {
+          command?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_line?: number | null
+          file_path?: string | null
+          github_link?: string | null
+          id?: string
+          last_duration_ms?: number | null
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          metadata?: Json | null
+          name: string
+          runner?: string | null
+          source_type: string
+          stable_id: string
+          start_line?: number | null
+          test_type: Database["public"]["Enums"]["test_type"]
+          version_id: string
+        }
+        Update: {
+          command?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_line?: number | null
+          file_path?: string | null
+          github_link?: string | null
+          id?: string
+          last_duration_ms?: number | null
+          last_error?: string | null
+          last_run_at?: string | null
+          last_status?: string | null
+          metadata?: Json | null
+          name?: string
+          runner?: string | null
+          source_type?: string
+          stable_id?: string
+          start_line?: number | null
+          test_type?: Database["public"]["Enums"]["test_type"]
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_nodes_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "repo_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -323,6 +452,16 @@ export type Database = {
         | "interface"
         | "constant"
         | "test"
+        | "other"
+      test_type:
+        | "e2e"
+        | "unit"
+        | "integration"
+        | "security"
+        | "contract"
+        | "smoke"
+        | "regression"
+        | "performance"
         | "other"
     }
     CompositeTypes: {
@@ -479,6 +618,17 @@ export const Constants = {
         "interface",
         "constant",
         "test",
+        "other",
+      ],
+      test_type: [
+        "e2e",
+        "unit",
+        "integration",
+        "security",
+        "contract",
+        "smoke",
+        "regression",
+        "performance",
         "other",
       ],
     },

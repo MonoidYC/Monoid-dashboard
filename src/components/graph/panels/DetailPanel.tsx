@@ -33,9 +33,13 @@ export function DetailPanel({
   onClose,
   onNodeSelect,
 }: DetailPanelProps) {
-  // Generate GitHub permalink
+  // Generate GitHub permalink - prefer direct link from node, otherwise generate from repo info
   const permalink = useMemo(() => {
-    if (!node || !repo || !version) return null;
+    if (!node) return null;
+    // Prefer the direct github_link from the node if available
+    if (node.data.githubLink) return node.data.githubLink;
+    // Fall back to generating from repo/version info
+    if (!repo || !version) return null;
     return generateGitHubPermalink(
       repo.owner,
       repo.name,

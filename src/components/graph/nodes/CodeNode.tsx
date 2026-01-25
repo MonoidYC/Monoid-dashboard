@@ -18,6 +18,7 @@ import {
   Hash,
   FlaskConical,
   Code,
+  Github,
 } from "lucide-react";
 import type { CodeNodeData, NodeType } from "@/lib/graph/types";
 import { NODE_TYPE_COLORS } from "@/lib/graph/types";
@@ -113,9 +114,23 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
           </span>
         </div>
 
-        {/* File path */}
-        <div className="text-[10px] text-gray-600 truncate mt-1 pl-7">
-          {data.filePath.split("/").pop()}:{data.startLine}
+        {/* Footer: File path and GitHub link */}
+        <div className="flex items-center justify-between mt-1 pl-7">
+          <div className="text-[10px] text-gray-600 truncate flex-1">
+            {data.filePath.split("/").pop()}:{data.startLine}
+          </div>
+          {data.githubLink && (
+            <a
+              href={data.githubLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 hover:bg-white/10 rounded transition-colors ml-1"
+              title="View on GitHub"
+            >
+              <Github className="w-3 h-3 text-white/40 hover:text-white/70" />
+            </a>
+          )}
         </div>
       </div>
 

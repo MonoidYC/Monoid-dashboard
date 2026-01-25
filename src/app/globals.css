@@ -68,6 +68,20 @@ body {
   border-bottom: none !important;
 }
 
+/* Horizontal controls variant */
+.react-flow__controls.\\!flex-row {
+  flex-direction: row !important;
+}
+
+.react-flow__controls.\\!flex-row .react-flow__controls-button {
+  border-bottom: none !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.react-flow__controls.\\!flex-row .react-flow__controls-button:last-child {
+  border-right: none !important;
+}
+
 .react-flow__controls-button svg {
   fill: rgba(255, 255, 255, 0.9) !important;
   width: 14px !important;

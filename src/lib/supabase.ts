@@ -1,10 +1,32 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database.types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Lazily initialized Supabase client
+let _supabase: SupabaseClient<Database> | null = null
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+export function getSupabase(): SupabaseClient<Database> {
+  if (_supabase) return _supabase
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      'Missing Supabase environment variables. ' +
+      'Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.'
+    )
+  }
+  
+  _supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+  return _supabase
+}
+
+// Legacy export for backwards compatibility (will throw if env vars not set)
+export const supabase = new Proxy({} as SupabaseClient<Database>, {
+  get(_, prop) {
+    return (getSupabase() as any)[prop]
+  }
+})
 
 // Type-safe helpers for common operations
 export type CodeNode = Database['public']['Tables']['code_nodes']['Row']

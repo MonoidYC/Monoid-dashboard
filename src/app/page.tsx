@@ -1,7 +1,48 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { GitBranch, Network, Zap } from "lucide-react";
+import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box } from "lucide-react";
+import { getRepoVersions } from "@/lib/graph/queries";
+import type { RepoVersionRow, RepoRow } from "@/lib/graph/types";
+
+interface VersionWithRepo {
+  version: RepoVersionRow;
+  repo: RepoRow;
+}
 
 export default function Home() {
+  const [versions, setVersions] = useState<VersionWithRepo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadVersions() {
+      setIsLoading(true);
+      try {
+        const data = await getRepoVersions();
+        setVersions(data);
+      } catch (error) {
+        console.error("Failed to load versions:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadVersions();
+  }, []);
+
+  // Format date
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Unknown";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#08080a]">
       <div className="max-w-4xl mx-auto text-center">
@@ -22,7 +63,7 @@ export default function Home() {
         </p>
 
         {/* Feature cards */}
-        <div className="grid md:grid-cols-3 gap-5 mb-14">
+        <div className="grid md:grid-cols-4 gap-5 mb-14">
           <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
             <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center mb-5 mx-auto">
               <GitBranch className="w-5 h-5 text-blue-400" />
@@ -44,6 +85,16 @@ export default function Home() {
           </div>
 
           <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div className="w-11 h-11 rounded-xl bg-lime-500/10 flex items-center justify-center mb-5 mx-auto">
+              <FlaskConical className="w-5 h-5 text-lime-400" />
+            </div>
+            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Test Visualization</h3>
+            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+              E2E, unit, security tests — see what&apos;s covered and what&apos;s failing.
+            </p>
+          </div>
+
+          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
             <div className="w-11 h-11 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5 mx-auto">
               <Zap className="w-5 h-5 text-amber-400" />
             </div>
@@ -54,14 +105,84 @@ export default function Home() {
           </div>
         </div>
 
-        {/* CTA */}
-        <Link
-          href="/graph/demo"
-          className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white text-black font-medium text-[15px] hover:bg-white/90 transition-all tracking-tight"
-        >
-          <Network className="w-[18px] h-[18px]" />
-          View Demo Graph
-        </Link>
+        {/* Available Repos Section */}
+        {isLoading ? (
+          <div className="mb-14">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400 mx-auto" />
+          </div>
+        ) : versions.length > 0 ? (
+          <div className="mb-14">
+            <h2 className="text-lg font-medium text-white/80 mb-6 tracking-tight">
+              Available Repositories
+            </h2>
+            <div className="space-y-3">
+              {versions.map(({ version, repo }) => (
+                <Link
+                  key={version.id}
+                  href={`/graph/${version.id}`}
+                  className="block p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
+                        <Network className="w-5 h-5 text-white/60" />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-medium text-white/90 group-hover:text-white transition-colors">
+                          {repo.owner}/{repo.name}
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
+                          <span className="flex items-center gap-1">
+                            <Hash className="w-3 h-3" />
+                            {version.commit_sha.slice(0, 7)}
+                          </span>
+                          {version.branch && (
+                            <span className="flex items-center gap-1">
+                              <GitBranch className="w-3 h-3" />
+                              {version.branch}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {formatDate(version.ingested_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Box className="w-3.5 h-3.5" />
+                        {version.node_count ?? 0} nodes
+                      </span>
+                      <span className="px-3 py-1.5 rounded-full bg-white/[0.05] text-white/70 text-xs font-medium group-hover:bg-white/[0.1] transition-colors">
+                        View Graph →
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* CTAs */}
+        <div className="flex items-center justify-center gap-4 flex-wrap">
+          <Link
+            href="/graph/demo"
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white/10 text-white/80 border border-white/10 font-medium text-[15px] hover:bg-white/15 transition-all tracking-tight"
+          >
+            <Network className="w-[18px] h-[18px]" />
+            View Demo Graph
+          </Link>
+          
+          <Link
+            href="/tests/demo"
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-lime-500/10 text-lime-400 border border-lime-500/20 font-medium text-[15px] hover:bg-lime-500/20 transition-all tracking-tight"
+          >
+            <FlaskConical className="w-[18px] h-[18px]" />
+            View Test Graph
+          </Link>
+        </div>
 
         <p className="mt-5 text-sm text-gray-600 font-light">
           No login required

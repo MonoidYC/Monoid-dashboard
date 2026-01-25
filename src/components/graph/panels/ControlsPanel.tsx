@@ -58,19 +58,19 @@ export function ControlsPanel({
   const [showNodeTypes, setShowNodeTypes] = useState(false);
 
   return (
-    <div className="absolute top-4 left-4 z-10 w-72">
+    <div className="absolute top-4 left-4 z-10 w-56">
       {/* Main panel */}
       <div className="bg-[#0c0c0e] border border-white/5 rounded-xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b border-white/5 cursor-pointer"
+          className="flex items-center justify-between px-3 py-2.5 border-b border-white/5 cursor-pointer"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-mono-400" />
-            <span className="font-medium text-sm">Filters</span>
-            <span className="text-xs text-gray-500">
-              {nodeCount} nodes · {edgeCount} edges
+            <Filter className="w-3.5 h-3.5 text-white/40" />
+            <span className="font-medium text-xs text-white/80">Filters</span>
+            <span className="text-[10px] text-white/30">
+              {nodeCount} · {edgeCount}
             </span>
           </div>
           {isExpanded ? (
@@ -81,25 +81,25 @@ export function ControlsPanel({
         </div>
 
         {isExpanded && (
-          <div className="p-4 space-y-4">
+          <div className="p-3 space-y-3">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
               <input
                 type="text"
-                placeholder="Search nodes..."
+                placeholder="Search..."
                 value={filters.searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-[#18181c] border border-white/5 rounded-lg text-sm placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-transparent"
+                className="w-full pl-8 pr-2 py-1.5 bg-[#18181c] border border-white/5 rounded-lg text-xs placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-transparent"
               />
             </div>
 
             {/* Cluster filters */}
             <div>
-              <div className="text-xs font-medium text-gray-400 mb-2">
+              <div className="text-[10px] font-medium text-white/30 uppercase tracking-wider mb-1.5">
                 Clusters
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {(Object.keys(CLUSTER_COLORS) as ClusterType[]).map((cluster) => {
                   const isActive = filters.clusters.includes(cluster);
                   return (
@@ -107,7 +107,7 @@ export function ControlsPanel({
                       key={cluster}
                       onClick={() => onToggleCluster(cluster)}
                       className={`
-                        flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                        flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium
                         transition-all border
                         ${
                           isActive
@@ -125,7 +125,6 @@ export function ControlsPanel({
                           : undefined
                       }
                     >
-                      {CLUSTER_ICONS[cluster]}
                       <span className="capitalize">{cluster}</span>
                     </button>
                   );
@@ -192,22 +191,22 @@ export function ControlsPanel({
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 pt-2 border-t border-white/5">
+            <div className="flex gap-1.5 pt-2 border-t border-white/5">
               <button
                 onClick={onRestartLayout}
                 disabled={isSimulating}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 disabled:opacity-50 rounded-lg text-xs font-medium transition-colors"
+                className="flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/15 disabled:opacity-50 rounded text-[10px] font-medium transition-colors"
               >
                 {isSimulating ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
                 ) : (
-                  <RotateCcw className="w-3 h-3" />
+                  <RotateCcw className="w-2.5 h-2.5" />
                 )}
                 Re-layout
               </button>
               <button
                 onClick={onReset}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-medium transition-colors"
+                className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[10px] font-medium transition-colors"
               >
                 Reset
               </button>

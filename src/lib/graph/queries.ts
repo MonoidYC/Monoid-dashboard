@@ -1,5 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "../database.types";
+import { getSupabase } from "../supabase";
 import type {
   CodeNodeRow,
   CodeEdgeRow,
@@ -12,11 +11,49 @@ import type {
 } from "./types";
 import { detectCluster } from "./types";
 
-// Create Supabase client
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Fetch all repo versions with their repo details
+export async function getRepoVersions(): Promise<{
+  version: RepoVersionRow;
+  repo: RepoRow;
+}[]> {
+  const supabase = getSupabase();
+
+  // Fetch all versions ordered by most recent first
+  const { data: versions, error: versionError } = await supabase
+    .from("repo_versions")
+    .select("*")
+    .order("ingested_at", { ascending: false });
+
+  if (versionError || !versions) {
+    console.error("Error fetching versions:", versionError);
+    return [];
+  }
+
+  // Get unique repo IDs
+  const repoIds = [...new Set(versions.map((v) => v.repo_id))];
+
+  // Fetch all repos
+  const { data: repos, error: repoError } = await supabase
+    .from("repos")
+    .select("*")
+    .in("id", repoIds);
+
+  if (repoError || !repos) {
+    console.error("Error fetching repos:", repoError);
+    return [];
+  }
+
+  // Create a map for quick lookup
+  const repoMap = new Map(repos.map((r) => [r.id, r]));
+
+  // Combine versions with their repos
+  return versions
+    .map((version) => {
+      const repo = repoMap.get(version.repo_id);
+      if (!repo) return null;
+      return { version, repo };
+    })
+    .filter((item): item is { version: RepoVersionRow; repo: RepoRow } => item !== null);
 }
 
 // Fetch repo version with repo details
@@ -24,7 +61,7 @@ export async function getRepoVersion(versionId: string): Promise<{
   version: RepoVersionRow;
   repo: RepoRow;
 } | null> {
-  const supabase = getSupabaseClient();
+  const supabase = getSupabase();
 
   const { data: version, error: versionError } = await supabase
     .from("repo_versions")
@@ -53,7 +90,7 @@ export async function getRepoVersion(versionId: string): Promise<{
 
 // Fetch all code nodes for a version
 export async function getCodeNodes(versionId: string): Promise<CodeNodeRow[]> {
-  const supabase = getSupabaseClient();
+  const supabase = getSupabase();
 
   const { data, error } = await supabase
     .from("code_nodes")
@@ -71,7 +108,7 @@ export async function getCodeNodes(versionId: string): Promise<CodeNodeRow[]> {
 
 // Fetch all code edges for a version
 export async function getCodeEdges(versionId: string): Promise<CodeEdgeRow[]> {
-  const supabase = getSupabaseClient();
+  const supabase = getSupabase();
 
   const { data, error } = await supabase
     .from("code_edges")
@@ -124,6 +161,7 @@ export function transformNodes(
       stableId: node.stable_id,
       metadata: (node.metadata as Record<string, unknown>) || {},
       summary: (node as any).summary || null, // Will be populated from Supabase later
+      githubLink: (node as any).github_link || null,
       cluster: detectCluster(node.file_path),
       connectionCount: incoming + outgoing,
       incomingCount: incoming,
@@ -245,27 +283,30 @@ const DEMO_SUMMARIES: Record<string, string> = {
   "13": "API base URL configuration constant",
 };
 
+// Demo GitHub links - using a fake repo for demonstration
+const DEMO_GITHUB_BASE = "https://github.com/monoid-dev/example-app/blob/abc123";
+
 // Generate demo data for testing
 export function generateDemoData(): { nodes: GraphNode[]; edges: GraphEdge[] } {
-  const demoNodes: (Partial<CodeNodeRow> & { summary?: string })[] = [
+  const demoNodes: (Partial<CodeNodeRow> & { summary?: string; github_link?: string })[] = [
     // Frontend components
-    { id: "1", name: "App", node_type: "component", file_path: "src/app/page.tsx", start_line: 1, end_line: 50, summary: DEMO_SUMMARIES["1"] },
-    { id: "2", name: "Header", node_type: "component", file_path: "src/components/Header.tsx", start_line: 1, end_line: 30, summary: DEMO_SUMMARIES["2"] },
-    { id: "3", name: "Sidebar", node_type: "component", file_path: "src/components/Sidebar.tsx", start_line: 1, end_line: 45, summary: DEMO_SUMMARIES["3"] },
-    { id: "4", name: "useAuth", node_type: "hook", file_path: "src/hooks/useAuth.ts", start_line: 1, end_line: 25, summary: DEMO_SUMMARIES["4"] },
-    { id: "5", name: "Button", node_type: "component", file_path: "src/ui/Button.tsx", start_line: 1, end_line: 20, summary: DEMO_SUMMARIES["5"] },
+    { id: "1", name: "App", node_type: "component", file_path: "src/app/page.tsx", start_line: 1, end_line: 50, summary: DEMO_SUMMARIES["1"], github_link: `${DEMO_GITHUB_BASE}/src/app/page.tsx#L1-L50` },
+    { id: "2", name: "Header", node_type: "component", file_path: "src/components/Header.tsx", start_line: 1, end_line: 30, summary: DEMO_SUMMARIES["2"], github_link: `${DEMO_GITHUB_BASE}/src/components/Header.tsx#L1-L30` },
+    { id: "3", name: "Sidebar", node_type: "component", file_path: "src/components/Sidebar.tsx", start_line: 1, end_line: 45, summary: DEMO_SUMMARIES["3"], github_link: `${DEMO_GITHUB_BASE}/src/components/Sidebar.tsx#L1-L45` },
+    { id: "4", name: "useAuth", node_type: "hook", file_path: "src/hooks/useAuth.ts", start_line: 1, end_line: 25, summary: DEMO_SUMMARIES["4"], github_link: `${DEMO_GITHUB_BASE}/src/hooks/useAuth.ts#L1-L25` },
+    { id: "5", name: "Button", node_type: "component", file_path: "src/ui/Button.tsx", start_line: 1, end_line: 20, summary: DEMO_SUMMARIES["5"], github_link: `${DEMO_GITHUB_BASE}/src/ui/Button.tsx#L1-L20` },
     
     // Backend API
-    { id: "6", name: "getUsers", node_type: "endpoint", file_path: "src/api/users/route.ts", start_line: 10, end_line: 35, summary: DEMO_SUMMARIES["6"] },
-    { id: "7", name: "createUser", node_type: "endpoint", file_path: "src/api/users/route.ts", start_line: 40, end_line: 70, summary: DEMO_SUMMARIES["7"] },
-    { id: "8", name: "authMiddleware", node_type: "middleware", file_path: "src/api/middleware/auth.ts", start_line: 1, end_line: 30, summary: DEMO_SUMMARIES["8"] },
-    { id: "9", name: "UserService", node_type: "class", file_path: "src/services/UserService.ts", start_line: 1, end_line: 100, summary: DEMO_SUMMARIES["9"] },
-    { id: "10", name: "validateUser", node_type: "function", file_path: "src/services/UserService.ts", start_line: 50, end_line: 70, summary: DEMO_SUMMARIES["10"] },
+    { id: "6", name: "getUsers", node_type: "endpoint", file_path: "src/api/users/route.ts", start_line: 10, end_line: 35, summary: DEMO_SUMMARIES["6"], github_link: `${DEMO_GITHUB_BASE}/src/api/users/route.ts#L10-L35` },
+    { id: "7", name: "createUser", node_type: "endpoint", file_path: "src/api/users/route.ts", start_line: 40, end_line: 70, summary: DEMO_SUMMARIES["7"], github_link: `${DEMO_GITHUB_BASE}/src/api/users/route.ts#L40-L70` },
+    { id: "8", name: "authMiddleware", node_type: "middleware", file_path: "src/api/middleware/auth.ts", start_line: 1, end_line: 30, summary: DEMO_SUMMARIES["8"], github_link: `${DEMO_GITHUB_BASE}/src/api/middleware/auth.ts#L1-L30` },
+    { id: "9", name: "UserService", node_type: "class", file_path: "src/services/UserService.ts", start_line: 1, end_line: 100, summary: DEMO_SUMMARIES["9"], github_link: `${DEMO_GITHUB_BASE}/src/services/UserService.ts#L1-L100` },
+    { id: "10", name: "validateUser", node_type: "function", file_path: "src/services/UserService.ts", start_line: 50, end_line: 70, summary: DEMO_SUMMARIES["10"], github_link: `${DEMO_GITHUB_BASE}/src/services/UserService.ts#L50-L70` },
     
     // Shared
-    { id: "11", name: "User", node_type: "type", file_path: "src/types/user.ts", start_line: 1, end_line: 15, summary: DEMO_SUMMARIES["11"] },
-    { id: "12", name: "formatDate", node_type: "function", file_path: "src/utils/date.ts", start_line: 1, end_line: 10, summary: DEMO_SUMMARIES["12"] },
-    { id: "13", name: "API_URL", node_type: "constant", file_path: "src/constants/config.ts", start_line: 1, end_line: 5, summary: DEMO_SUMMARIES["13"] },
+    { id: "11", name: "User", node_type: "type", file_path: "src/types/user.ts", start_line: 1, end_line: 15, summary: DEMO_SUMMARIES["11"], github_link: `${DEMO_GITHUB_BASE}/src/types/user.ts#L1-L15` },
+    { id: "12", name: "formatDate", node_type: "function", file_path: "src/utils/date.ts", start_line: 1, end_line: 10, summary: DEMO_SUMMARIES["12"], github_link: `${DEMO_GITHUB_BASE}/src/utils/date.ts#L1-L10` },
+    { id: "13", name: "API_URL", node_type: "constant", file_path: "src/constants/config.ts", start_line: 1, end_line: 5, summary: DEMO_SUMMARIES["13"], github_link: `${DEMO_GITHUB_BASE}/src/constants/config.ts#L1-L5` },
   ];
 
   const demoEdges: Partial<CodeEdgeRow>[] = [
