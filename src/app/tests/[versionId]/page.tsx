@@ -13,10 +13,6 @@ export default function TestsPage() {
 
   const { nodes, edges, repo, version, isLoading, error } = useTestData(versionId);
 
-  // Ensure nodes and edges are arrays (defensive check)
-  const safeNodes = Array.isArray(nodes) ? nodes : [];
-  const safeEdges = Array.isArray(edges) ? edges : [];
-
   // Loading state
   if (isLoading) {
     return (
@@ -50,7 +46,7 @@ export default function TestsPage() {
   }
 
   // Empty state
-  if (safeNodes.length === 0) {
+  if (nodes.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#08080a]">
         <div className="text-center max-w-md">
@@ -117,7 +113,7 @@ export default function TestsPage() {
           </Link>
           
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <span>{safeNodes.length} tests</span>
+            <span>{nodes.length} tests</span>
           </div>
 
           <SignOutButton />
@@ -127,10 +123,10 @@ export default function TestsPage() {
       {/* Test Canvas */}
       <main className="flex-1 relative">
         <TestCanvas
-          initialNodes={safeNodes}
-          initialEdges={safeEdges}
-          repo={repo || undefined}
-          version={version || undefined}
+          initialNodes={nodes}
+          initialEdges={edges}
+          repo={repo}
+          version={version}
         />
       </main>
     </div>
