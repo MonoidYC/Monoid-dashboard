@@ -136,10 +136,7 @@ export default function Home() {
       
       <div className="max-w-4xl mx-auto text-center">
         {/* Logo */}
-        <div className="mb-10 flex items-center justify-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/[0.08] flex items-center justify-center">
-            <Network className="w-8 h-8 text-white/90" />
-          </div>
+        <div className="mb-10 flex items-center justify-center">
           <h1 className="text-5xl font-semibold tracking-tight text-white">
             Monoid
           </h1>
@@ -151,48 +148,50 @@ export default function Home() {
           Understand impact and explore your architecture.
         </p>
 
-        {/* Feature cards */}
-        <div className="grid md:grid-cols-4 gap-5 mb-14">
-          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center mb-5 mx-auto">
-              <GitBranch className="w-5 h-5 text-blue-400" />
+        {/* Feature cards - only show when not logged in */}
+        {!isLoading && orgData.length === 0 && (
+          <div className="grid md:grid-cols-4 gap-5 mb-14">
+            <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+              <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center mb-5 mx-auto">
+                <GitBranch className="w-5 h-5 text-blue-400" />
+              </div>
+              <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">AST-Derived Nodes</h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+                Functions, classes, endpoints, and more — parsed directly from your code.
+              </p>
             </div>
-            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">AST-Derived Nodes</h3>
-            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
-              Functions, classes, endpoints, and more — parsed directly from your code.
-            </p>
-          </div>
 
-          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-5 mx-auto">
-              <Network className="w-5 h-5 text-emerald-400" />
+            <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-5 mx-auto">
+                <Network className="w-5 h-5 text-emerald-400" />
+              </div>
+              <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Dependency Graph</h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+                See how your code connects — imports, calls, routes, and more.
+              </p>
             </div>
-            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Dependency Graph</h3>
-            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
-              See how your code connects — imports, calls, routes, and more.
-            </p>
-          </div>
 
-          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="w-11 h-11 rounded-xl bg-lime-500/10 flex items-center justify-center mb-5 mx-auto">
-              <FlaskConical className="w-5 h-5 text-lime-400" />
+            <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+              <div className="w-11 h-11 rounded-xl bg-lime-500/10 flex items-center justify-center mb-5 mx-auto">
+                <FlaskConical className="w-5 h-5 text-lime-400" />
+              </div>
+              <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Test Visualization</h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+                E2E, unit, security tests — see what&apos;s covered and what&apos;s failing.
+              </p>
             </div>
-            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Test Visualization</h3>
-            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
-              E2E, unit, security tests — see what&apos;s covered and what&apos;s failing.
-            </p>
-          </div>
 
-          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="w-11 h-11 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5 mx-auto">
-              <Zap className="w-5 h-5 text-amber-400" />
+            <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+              <div className="w-11 h-11 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5 mx-auto">
+                <Zap className="w-5 h-5 text-amber-400" />
+              </div>
+              <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Blast Radius</h3>
+              <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+                Understand the impact of changes before you make them.
+              </p>
             </div>
-            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Blast Radius</h3>
-            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
-              Understand the impact of changes before you make them.
-            </p>
           </div>
-        </div>
+        )}
 
         {/* Organizations Section */}
         {isLoading ? (
