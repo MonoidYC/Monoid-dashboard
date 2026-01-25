@@ -15,7 +15,9 @@ import {
   ChevronRight, 
   FolderGit2,
   Building2,
-  Globe
+  Globe,
+  FileText,
+  Map
 } from "lucide-react";
 import { getOrganizationsWithRepos } from "@/lib/graph/queries";
 import type { OrganizationWithRepos, RepoWithVersions, RepoVersionRow } from "@/lib/graph/types";
@@ -247,6 +249,30 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
+                        {/* Docs and Roadmap buttons */}
+                        {repos.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/docs/${organization.id}`}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                              className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 flex items-center gap-2 transition-colors"
+                            >
+                              <FileText className="w-4 h-4 text-cyan-400" />
+                              <span className="text-sm font-medium text-cyan-400">Docs</span>
+                            </Link>
+                            <div className="relative">
+                              <Link
+                                href={`/roadmap/${repos[0].repo.id}`}
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                className="px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 flex items-center gap-2 transition-colors"
+                              >
+                                <Map className="w-4 h-4 text-purple-400" />
+                                <span className="text-sm font-medium text-purple-400">Roadmap</span>
+                                <ChevronDown className="w-3 h-3 text-purple-400" />
+                              </Link>
+                            </div>
+                          </div>
+                        )}
                         {isExpanded ? (
                           <ChevronDown className="w-5 h-5 text-gray-500" />
                         ) : (
@@ -309,9 +335,8 @@ export default function Home() {
                               {isRepoExpanded && versions.length > 0 && (
                                 <div className="border-t border-white/[0.03] bg-white/[0.01]">
                                   {versions.map((version: RepoVersionRow, versionIndex: number) => (
-                                    <Link
+                                    <div
                                       key={version.id}
-                                      href={`/graph/${version.id}`}
                                       className={`block p-3 pl-16 hover:bg-white/[0.03] transition-colors group ${
                                         versionIndex !== versions.length - 1 ? "border-b border-white/[0.02]" : ""
                                       }`}
@@ -339,17 +364,34 @@ export default function Home() {
                                             </div>
                                           </div>
                                         </div>
-                                        <div className="flex items-center gap-3 text-xs text-gray-500">
-                                          <span className="flex items-center gap-1">
-                                            <Box className="w-3 h-3" />
-                                            {version.node_count ?? 0} nodes
-                                          </span>
-                                          <span className="px-2 py-1 rounded-full bg-white/[0.04] text-white/60 text-xs group-hover:bg-white/[0.08] transition-colors">
-                                            View →
-                                          </span>
+                                        <div className="flex items-center gap-3">
+                                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            <span className="flex items-center gap-1">
+                                              <Box className="w-3 h-3" />
+                                              {version.node_count ?? 0} nodes
+                                            </span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Link
+                                              href={`/graph/${version.id}`}
+                                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                              className="px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] flex items-center gap-2 transition-colors"
+                                            >
+                                              <Network className="w-3.5 h-3.5 text-white/70" />
+                                              <span className="text-xs font-medium text-white/70">Graph</span>
+                                            </Link>
+                                            <Link
+                                              href={`/tests/${version.id}`}
+                                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                              className="px-3 py-1.5 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 border border-lime-500/20 flex items-center gap-2 transition-colors"
+                                            >
+                                              <FlaskConical className="w-3.5 h-3.5 text-lime-400" />
+                                              <span className="text-xs font-medium text-lime-400">Tests</span>
+                                            </Link>
+                                          </div>
                                         </div>
                                       </div>
-                                    </Link>
+                                    </div>
                                   ))}
                                 </div>
                               )}
