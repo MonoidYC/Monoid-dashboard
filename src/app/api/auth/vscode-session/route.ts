@@ -58,12 +58,15 @@ export async function POST(request: Request) {
     }
 
     // Set all cookies on the response
+    // For iframe contexts, we need sameSite: "none" with secure: true
+    const isProduction = process.env.NODE_ENV === "production";
     cookiesToSet.forEach(({ name, value, options }) => {
       response.cookies.set(name, value, {
         ...options,
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        secure: isProduction, // Required for sameSite: "none"
+        sameSite: isProduction ? "none" : "lax", // "none" needed for iframe in production
+        path: "/",
       });
     });
 

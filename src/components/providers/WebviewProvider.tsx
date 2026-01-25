@@ -41,6 +41,7 @@ export function useWebview() {
 export function WebviewProvider({ children }: { children: ReactNode }) {
   const [isWebview, setIsWebview] = useState(false);
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [isSettingSession, setIsSettingSession] = useState(false);
 
   // Request sign in from VS Code
   const requestSignIn = useCallback(() => {
@@ -133,13 +134,25 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
       // Handle auth session from VS Code
       if (event.data?.type === 'setAuthSession') {
         console.log('[Monoid] Received setAuthSession message, session exists:', !!event.data?.session);
-        if (event.data?.session) {
+        if (event.data?.session && !isSettingSession) {
+          setIsSettingSession(true);
           setAuthSession(event.data.session);
         
           // Set session in Supabase client AND set server-side cookies
           const setSession = async () => {
             try {
+              // Check if we're already authenticated (avoid unnecessary reload)
+              const supabase = getSupabase();
+              const { data: { session: existingSession } } = await supabase.auth.getSession();
+              
+              if (existingSession && existingSession.access_token === event.data.session.access_token) {
+                console.log('[Monoid] Already authenticated with same session, skipping');
+                setIsSettingSession(false);
+                return;
+              }
+
               // First, set server-side cookies via API endpoint
+              console.log('[Monoid] Setting server session cookies...');
               const response = await fetch('/api/auth/vscode-session', {
                 method: 'POST',
                 headers: {
@@ -155,13 +168,13 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
               if (!response.ok) {
                 const error = await response.json();
                 console.warn('[Monoid] Failed to set server session:', error);
+                setIsSettingSession(false);
                 return;
               }
 
               console.log('[Monoid] Server session cookies set successfully');
 
               // Also set client-side Supabase session
-              const supabase = getSupabase();
               const { error } = await supabase.auth.setSession({
                 access_token: event.data.session.access_token,
                 refresh_token: event.data.session.refresh_token,
@@ -169,17 +182,24 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
 
               if (error) {
                 console.warn('[Monoid] Could not set Supabase client session:', error);
+                setIsSettingSession(false);
               } else {
                 console.log('[Monoid] Supabase client session set successfully');
-                // Reload to pick up the new session cookies
-                window.location.reload();
+                // Small delay before reload to ensure cookies are set
+                setTimeout(() => {
+                  console.log('[Monoid] Reloading to pick up session cookies...');
+                  window.location.reload();
+                }, 100);
               }
             } catch (e) {
               console.warn('[Monoid] Could not set session:', e);
+              setIsSettingSession(false);
             }
           };
 
           setSession();
+        } else if (isSettingSession) {
+          console.log('[Monoid] Already setting session, ignoring duplicate message');
         }
       }
     };

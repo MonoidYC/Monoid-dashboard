@@ -49,6 +49,11 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Log for debugging (remove in production)
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Middleware] ${request.nextUrl.pathname} - User: ${user ? user.email : "none"}`);
+  }
+
   // Define public routes that don't require authentication
   const publicRoutes = [
     "/login",
