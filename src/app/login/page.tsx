@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Network, Github, Loader2 } from "lucide-react";
+import { Github, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -37,10 +37,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           {/* Logo */}
-          <div className="mb-10 flex items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/[0.08] flex items-center justify-center">
-              <Network className="w-6 h-6 text-white/90" />
-            </div>
+          <div className="mb-10 flex items-center justify-center">
             <h1 className="text-3xl font-semibold tracking-tight text-white">
               Monoid
             </h1>
