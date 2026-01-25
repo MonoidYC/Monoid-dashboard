@@ -38,12 +38,12 @@ const RUNNER_ICONS: Record<string, React.ComponentType<{ className?: string; sty
   default: Play,
 };
 
-// Source type icons
+// Source type icons - ensure all are defined
 const SOURCE_ICONS: Record<SourceType, React.ComponentType<{ className?: string }>> = {
-  file: FileCode,
-  generated: Sparkles,
-  external: Globe,
-  synced: Github, // For synced tests (from existing test files)
+  file: FileCode || (() => null),
+  generated: Sparkles || (() => null),
+  external: Globe || (() => null),
+  synced: Github || (() => null), // For synced tests (from existing test files)
 };
 
 interface TestNodeProps {
@@ -55,7 +55,16 @@ function TestNodeComponent({ data, selected }: TestNodeProps) {
   const typeColor = TEST_TYPE_COLORS[data.testType];
   const statusColor = data.lastStatus ? TEST_STATUS_COLORS[data.lastStatus] : "#6b7280";
   const RunnerIcon = RUNNER_ICONS[data.runner || "default"] || RUNNER_ICONS.default;
-  const SourceIcon = SOURCE_ICONS[data.sourceType] || SOURCE_ICONS.file; // Fallback to file icon if source type not found
+  
+  // Ensure sourceType is valid, with explicit type checking
+  const sourceType: SourceType = (data.sourceType && 
+                                   (data.sourceType === "file" || 
+                                    data.sourceType === "generated" || 
+                                    data.sourceType === "external" || 
+                                    data.sourceType === "synced"))
+    ? (data.sourceType as SourceType) 
+    : "file";
+  const SourceIcon = SOURCE_ICONS[sourceType] || SOURCE_ICONS.file; // Double fallback
 
   const isHighlighted = data.isHighlighted;
   const isFaded = data.isFaded;
@@ -128,7 +137,7 @@ function TestNodeComponent({ data, selected }: TestNodeProps) {
           {/* Source type */}
           <div
             className="flex items-center gap-1 text-[10px] text-white/40"
-            title={`Source: ${data.sourceType}`}
+            title={`Source: ${sourceType}`}
           >
             <SourceIcon className="w-3 h-3" />
           </div>

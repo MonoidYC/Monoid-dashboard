@@ -14,6 +14,11 @@ export type SourceType = "file" | "generated" | "external" | "synced";
 export type TestStatus = "passed" | "failed" | "skipped" | "pending";
 export type CoverageType = "covers" | "calls" | "tests_endpoint";
 
+// Runtime validation for SourceType
+export function isValidSourceType(value: string): value is SourceType {
+  return value === "file" || value === "generated" || value === "external" || value === "synced";
+}
+
 // Extended node data for React Flow
 export interface TestNodeData extends Record<string, unknown> {
   // From database

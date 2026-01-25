@@ -85,7 +85,16 @@ export function TestDetailPanel({
   const { data } = node;
   const typeColor = TEST_TYPE_COLORS[data.testType];
   const statusColor = data.lastStatus ? TEST_STATUS_COLORS[data.lastStatus] : "#6b7280";
-  const SourceIcon = SOURCE_ICONS[data.sourceType] || SOURCE_ICONS.file; // Fallback to file icon if source type not found
+  
+  // Validate sourceType with explicit check
+  const sourceType: SourceType = (data.sourceType && 
+                                   (data.sourceType === "file" || 
+                                    data.sourceType === "generated" || 
+                                    data.sourceType === "external" || 
+                                    data.sourceType === "synced"))
+    ? (data.sourceType as SourceType) 
+    : "file";
+  const SourceIcon = SOURCE_ICONS[sourceType] || SOURCE_ICONS.file; // Double fallback
   const StatusIcon = data.lastStatus ? STATUS_ICONS[data.lastStatus] : Clock;
 
   // Build GitHub link - prefer direct link from node, otherwise generate from repo info
@@ -213,7 +222,7 @@ export function TestDetailPanel({
             <div className="flex items-center gap-2 text-sm">
               <SourceIcon className="w-3.5 h-3.5 text-white/30" />
               <span className="text-white/50">Source:</span>
-              <span className="text-white/70 capitalize">{data.sourceType}</span>
+              <span className="text-white/70 capitalize">{sourceType}</span>
             </div>
 
             {/* Command */}

@@ -19,12 +19,20 @@ function transformTestNode(
   row: TestNodeRow,
   coveredCodeCount: number
 ): TestGraphNode {
+  // Validate and normalize sourceType
+  const sourceType: SourceType = (row.source_type === "synced" || 
+                                  row.source_type === "file" || 
+                                  row.source_type === "generated" || 
+                                  row.source_type === "external")
+    ? row.source_type as SourceType
+    : "file"; // Default fallback
+  
   const data: TestNodeData = {
     id: row.id,
     name: row.name,
     description: row.description,
     testType: row.test_type as TestType,
-    sourceType: row.source_type as SourceType,
+    sourceType: sourceType,
     filePath: row.file_path,
     startLine: row.start_line,
     endLine: row.end_line,
