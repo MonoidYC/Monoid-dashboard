@@ -157,9 +157,9 @@ export async function getAllNodesForOrg(
 
   // Build version to repo mapping
   const versionToRepo = new Map<string, string>();
-  for (const [repoId, versionId] of latestVersions.entries()) {
+  latestVersions.forEach((versionId, repoId) => {
     versionToRepo.set(versionId, repoId);
-  }
+  });
 
   // Map nodes to OrgAutocompleteNode format
   return nodes.map((node) => {
