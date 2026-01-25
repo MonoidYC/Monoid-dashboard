@@ -228,6 +228,7 @@ export function GraphCanvas({
         stableId: `${data.filePath}:${data.name}:${data.startLine}`,
         metadata: {},
         summary: data.summary,
+        githubLink: null,
         cluster: detectCluster(data.filePath),
         connectionCount: 0,
         incomingCount: 0,
