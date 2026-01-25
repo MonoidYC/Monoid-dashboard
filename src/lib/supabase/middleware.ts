@@ -63,6 +63,7 @@ export async function updateSession(request: NextRequest) {
     "/api/mcp",
     "/api/docs",
     "/api/auth/vscode-session",
+    "/api/github-webhook",
   ];
 
   const isPublicRoute = publicRoutes.some(
