@@ -65,14 +65,33 @@ export async function updateSession(request: NextRequest) {
     "/api/auth/vscode-session", // Allow VS Code to set session
   ];
 
+  // Routes that handle auth client-side (for VS Code webview support)
+  // These routes will show their own login UI if needed
+  const clientAuthRoutes = [
+    "/graph",
+    "/tests",
+  ];
+
   const isPublicRoute = publicRoutes.some(
     (route) =>
       request.nextUrl.pathname === route ||
       request.nextUrl.pathname.startsWith(route + "/")
   );
 
-  // Redirect to login if not authenticated and not on a public route
-  if (!user && !isPublicRoute) {
+  const isClientAuthRoute = clientAuthRoutes.some(
+    (route) =>
+      request.nextUrl.pathname === route ||
+      request.nextUrl.pathname.startsWith(route + "/")
+  );
+
+  // Check for webview indicator (URL param or header)
+  const isWebviewRequest = 
+    request.nextUrl.searchParams.get("webview") === "true" ||
+    request.headers.get("sec-fetch-dest") === "iframe";
+
+  // Redirect to login if not authenticated and not on a public/client-auth route
+  // Client auth routes handle their own auth UI (needed for VS Code webview)
+  if (!user && !isPublicRoute && !isClientAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
