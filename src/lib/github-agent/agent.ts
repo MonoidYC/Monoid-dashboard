@@ -142,7 +142,7 @@ function buildCodeContext(nodes: CodeNodeContext[]): string {
 
   const sections: string[] = [];
 
-  for (const [type, typeNodes] of byType) {
+  byType.forEach((typeNodes, type) => {
     const items = typeNodes
       .slice(0, 25) // Limit per type
       .map((n) => {
@@ -157,7 +157,7 @@ function buildCodeContext(nodes: CodeNodeContext[]): string {
       .join("\n");
 
     sections.push(`### ${type.charAt(0).toUpperCase() + type.slice(1)}s\n${items}`);
-  }
+  });
 
   return sections.join("\n\n");
 }
