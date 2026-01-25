@@ -78,12 +78,12 @@ export function shouldProcessCommentEvent(
 }
 
 /**
- * Parse a /monoid command from a comment body
- * Returns the command text after /monoid, or null if no command found
+ * Parse a /monoid or @monoid command from a comment body
+ * Returns the command text after the trigger, or null if no command found
  * 
  * Examples:
  *   "/monoid is this feasible?" -> "is this feasible?"
- *   "/monoid analyze this" -> "analyze this"
+ *   "@monoid analyze this" -> "analyze this"
  *   "Hey team, /monoid can we do this?" -> "can we do this?"
  *   "No command here" -> null
  */
@@ -92,13 +92,13 @@ export function parseMonoidCommand(commentBody: string): string | null {
     return null;
   }
 
-  // Match /monoid followed by optional text
+  // Match /monoid or @monoid followed by optional text
   // The command can appear anywhere in the comment
-  const match = commentBody.match(/\/monoid\s*(.*?)(?:\n|$)/i);
+  const match = commentBody.match(/[/@]monoid\s*(.*?)(?:\n|$)/i);
   
   if (match) {
     const command = match[1].trim();
-    // Return the command text, or a default if just "/monoid" was used
+    // Return the command text, or a default if just "/monoid" or "@monoid" was used
     return command || "analyze feasibility";
   }
 
