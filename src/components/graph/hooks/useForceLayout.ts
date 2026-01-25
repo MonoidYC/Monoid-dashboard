@@ -68,15 +68,14 @@ export function useForceLayout(
 
     if (layoutType === "hierarchical") {
       // Use hierarchical layout (dagre) - parents above children
+      // Node sizes are now dynamically calculated in the layout function
       const computedNodes = applyHierarchicalLayout(
         nodesRef.current,
         edgesRef.current,
         {
           direction: "TB",
-          nodeWidth: 300,
-          nodeHeight: 120,
-          rankSep: 180,
-          nodeSep: 100,
+          rankSep: 80,  // Tighter vertical spacing
+          nodeSep: 40,  // Tighter horizontal spacing
         }
       );
       setLayoutNodes(computedNodes);
@@ -118,18 +117,17 @@ export function useForceLayout(
     if (nodes.length > 0 && enabled) {
       if (layoutType === "hierarchical") {
         // Use hierarchical layout for clear parent-child structure
+        // Node sizes are dynamically calculated in the layout function
         const computedNodes = applyHierarchicalLayout(nodes, edges, {
           direction: "TB",
-          nodeWidth: 300,
-          nodeHeight: 120,
-          rankSep: 180,
-          nodeSep: 100,
+          rankSep: 80,  // Tighter vertical spacing
+          nodeSep: 40,  // Tighter horizontal spacing
         });
         setLayoutNodes(computedNodes);
       } else {
         // Use hierarchical as fallback for initial render
         const computedNodes = applyHierarchicalLayout(nodes, edges);
-      setLayoutNodes(computedNodes);
+        setLayoutNodes(computedNodes);
       }
     } else {
       setLayoutNodes(nodes);
