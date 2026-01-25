@@ -12,11 +12,20 @@ import type {
 } from "./types";
 import { detectCluster } from "./types";
 
-// Fetch all repo versions with their repo and organization details
+// Test statistics for a version
+export interface VersionTestStats {
+  testCount: number;
+  passedCount: number;
+  failedCount: number;
+  pendingCount: number;
+}
+
+// Fetch all repo versions with their repo, organization, and test stats
 export async function getRepoVersions(): Promise<{
   version: RepoVersionRow;
   repo: RepoRow;
   organization: OrganizationRow | null;
+  testStats: VersionTestStats;
 }[]> {
   const supabase = getSupabase();
 
@@ -63,18 +72,53 @@ export async function getRepoVersions(): Promise<{
     }
   }
 
+  // Fetch test nodes for all versions to compute stats
+  const versionIds = versions.map((v) => v.id);
+  const { data: testNodes, error: testError } = await supabase
+    .from("test_nodes")
+    .select("version_id, last_status")
+    .in("version_id", versionIds);
+
+  // Compute test stats per version
+  const testStatsMap = new Map<string, VersionTestStats>();
+  if (!testError && testNodes) {
+    for (const test of testNodes) {
+      const stats = testStatsMap.get(test.version_id) || {
+        testCount: 0,
+        passedCount: 0,
+        failedCount: 0,
+        pendingCount: 0,
+      };
+      stats.testCount++;
+      if (test.last_status === "passed") {
+        stats.passedCount++;
+      } else if (test.last_status === "failed") {
+        stats.failedCount++;
+      } else {
+        stats.pendingCount++;
+      }
+      testStatsMap.set(test.version_id, stats);
+    }
+  }
+
   // Create a map for quick repo lookup
   const repoMap = new Map(repos.map((r) => [r.id, r]));
 
-  // Combine versions with their repos and organizations
+  // Combine versions with their repos, organizations, and test stats
   return versions
     .map((version) => {
       const repo = repoMap.get(version.repo_id);
       if (!repo) return null;
       const organization = repo.organization_id ? orgMap.get(repo.organization_id) || null : null;
-      return { version, repo, organization };
+      const testStats = testStatsMap.get(version.id) || {
+        testCount: 0,
+        passedCount: 0,
+        failedCount: 0,
+        pendingCount: 0,
+      };
+      return { version, repo, organization, testStats };
     })
-    .filter((item): item is { version: RepoVersionRow; repo: RepoRow; organization: OrganizationRow | null } => item !== null);
+    .filter((item): item is { version: RepoVersionRow; repo: RepoRow; organization: OrganizationRow | null; testStats: VersionTestStats } => item !== null);
 }
 
 // Fetch repo version with repo details

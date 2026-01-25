@@ -2,20 +2,19 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2, Map as MapIcon, Building2 } from "lucide-react";
-import { getRepoVersions } from "@/lib/graph/queries";
+import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2, Map as MapIcon, Building2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { getRepoVersions, type VersionTestStats } from "@/lib/graph/queries";
 import type { RepoVersionRow, RepoRow, OrganizationRow } from "@/lib/graph/types";
 
-interface VersionWithRepo {
+interface VersionWithTestStats {
   version: RepoVersionRow;
-  repo: RepoRow;
-  organization: OrganizationRow | null;
+  testStats: VersionTestStats;
 }
 
 interface RepoGroup {
   repo: RepoRow;
   organization: OrganizationRow | null;
-  versions: RepoVersionRow[];
+  versions: VersionWithTestStats[];
 }
 
 export default function Home() {
@@ -32,19 +31,19 @@ export default function Home() {
         // Group versions by repo
         const groupMap = new Map<string, RepoGroup>();
         
-        for (const { version, repo, organization } of data) {
+        for (const { version, repo, organization, testStats } of data) {
           const existing = groupMap.get(repo.id);
           if (existing) {
-            existing.versions.push(version);
+            existing.versions.push({ version, testStats });
           } else {
-            groupMap.set(repo.id, { repo, organization, versions: [version] });
+            groupMap.set(repo.id, { repo, organization, versions: [{ version, testStats }] });
           }
         }
         
         // Convert to array and sort by most recent version
         const groups = Array.from(groupMap.values()).sort((a, b) => {
-          const aLatest = a.versions[0]?.ingested_at || "";
-          const bLatest = b.versions[0]?.ingested_at || "";
+          const aLatest = a.versions[0]?.version.ingested_at || "";
+          const bLatest = b.versions[0]?.version.ingested_at || "";
           return bLatest.localeCompare(aLatest);
         });
         
@@ -220,8 +219,8 @@ export default function Home() {
                         </div>
                         <div className="text-sm text-gray-500 mt-0.5">
                           {versions.length} {versions.length === 1 ? "commit" : "commits"}
-                          {versions[0]?.ingested_at && (
-                            <span className="text-gray-600"> · Last updated {formatRelativeTime(versions[0].ingested_at)}</span>
+                          {versions[0]?.version.ingested_at && (
+                            <span className="text-gray-600"> · Last updated {formatRelativeTime(versions[0].version.ingested_at)}</span>
                           )}
                         </div>
                       </div>
@@ -247,11 +246,10 @@ export default function Home() {
                   {/* Versions List - Expanded */}
                   {expandedRepos.has(repo.id) && (
                     <div className="border-t border-white/[0.04]">
-                      {versions.map((version, index) => (
-                        <Link
+                      {versions.map(({ version, testStats }, index) => (
+                        <div
                           key={version.id}
-                          href={`/graph/${version.id}`}
-                          className={`block p-4 pl-[4.5rem] hover:bg-white/[0.03] transition-colors group ${
+                          className={`p-4 pl-[4.5rem] ${
                             index !== versions.length - 1 ? "border-b border-white/[0.03]" : ""
                           }`}
                         >
@@ -261,7 +259,7 @@ export default function Home() {
                                 <Hash className="w-4 h-4 text-white/50" />
                               </div>
                               <div className="text-left">
-                                <div className="font-mono text-sm text-white/80 group-hover:text-white transition-colors">
+                                <div className="font-mono text-sm text-white/80">
                                   {version.commit_sha.slice(0, 7)}
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
@@ -278,17 +276,54 @@ export default function Home() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Box className="w-3.5 h-3.5" />
-                                {version.node_count ?? 0} nodes
-                              </span>
-                              <span className="px-3 py-1.5 rounded-full bg-white/[0.05] text-white/70 text-xs font-medium group-hover:bg-white/[0.1] transition-colors">
-                                View →
-                              </span>
+                            <div className="flex items-center gap-3">
+                              {/* Stats */}
+                              <div className="flex items-center gap-3 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Box className="w-3.5 h-3.5" />
+                                  {version.node_count ?? 0} nodes
+                                </span>
+                                {testStats.testCount > 0 && (
+                                  <span className={`flex items-center gap-1 ${
+                                    testStats.failedCount > 0
+                                      ? "text-red-400"
+                                      : testStats.passedCount === testStats.testCount
+                                      ? "text-emerald-400"
+                                      : "text-gray-400"
+                                  }`}>
+                                    {testStats.failedCount > 0 ? (
+                                      <XCircle className="w-3.5 h-3.5" />
+                                    ) : testStats.passedCount === testStats.testCount ? (
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <Clock className="w-3.5 h-3.5" />
+                                    )}
+                                    {testStats.testCount} tests
+                                  </span>
+                                )}
+                              </div>
+                              {/* Action Links */}
+                              <div className="flex items-center gap-2">
+                                <Link
+                                  href={`/graph/${version.id}`}
+                                  className="px-3 py-1.5 rounded-lg bg-white/[0.05] text-white/70 text-xs font-medium hover:bg-white/[0.1] transition-colors flex items-center gap-1.5"
+                                >
+                                  <Network className="w-3.5 h-3.5" />
+                                  Graph
+                                </Link>
+                                {testStats.testCount > 0 && (
+                                  <Link
+                                    href={`/tests/${version.id}`}
+                                    className="px-3 py-1.5 rounded-lg bg-lime-500/10 text-lime-400 text-xs font-medium hover:bg-lime-500/20 transition-colors flex items-center gap-1.5"
+                                  >
+                                    <FlaskConical className="w-3.5 h-3.5" />
+                                    Tests
+                                  </Link>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   )}

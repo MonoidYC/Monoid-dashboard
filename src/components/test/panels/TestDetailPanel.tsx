@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   X,
   ExternalLink,
@@ -14,6 +15,7 @@ import {
   XCircle,
   MinusCircle,
   Code,
+  Network,
 } from "lucide-react";
 import type {
   TestGraphNode,
@@ -275,22 +277,26 @@ export function TestDetailPanel({
           ) : (
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
               {coveredNodes.map((codeNode) => (
-                <div
+                <Link
                   key={codeNode.id}
-                  className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-colors"
+                  href={`/graph/${codeNode.version_id}?highlight=${codeNode.id}`}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] hover:border-violet-500/30 transition-colors group cursor-pointer"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-white/70 truncate font-medium">
+                    <div className="text-xs text-white/70 truncate font-medium group-hover:text-white/90 transition-colors">
                       {codeNode.name}
                     </div>
                     <div className="text-[10px] text-white/40 truncate">
                       {codeNode.file_path.split("/").pop()}:{codeNode.start_line}
                     </div>
                   </div>
+                  <div className="flex items-center gap-1.5">
                   <span className="text-[9px] text-white/30 uppercase">
                     {codeNode.node_type}
                   </span>
+                    <Network className="w-3 h-3 text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                </Link>
               ))}
             </div>
           )}

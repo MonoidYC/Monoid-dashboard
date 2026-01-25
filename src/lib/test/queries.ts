@@ -71,18 +71,17 @@ export async function fetchTestNodes(versionId: string): Promise<{
   try {
     const supabase = getSupabase();
     
-    // Fetch test nodes
+    // Fetch test nodes ordered by creation time (earliest first = runs first)
     const { data: testNodes, error: nodesError } = await supabase
       .from("test_nodes")
       .select("*")
       .eq("version_id", versionId)
-      .order("test_type")
-      .order("name");
+      .order("created_at", { ascending: true });
 
     if (nodesError) throw nodesError;
     if (!testNodes) return { nodes: [], edges: [], error: null };
 
-    // Fetch coverage edges
+    // Fetch coverage edges to count covered code per test
     const { data: coverageEdges, error: edgesError } = await supabase
       .from("test_coverage_edges")
       .select("*")
@@ -102,7 +101,21 @@ export async function fetchTestNodes(versionId: string): Promise<{
       transformTestNode(row, coverageCountMap.get(row.id) || 0)
     );
 
-    const edges = (coverageEdges || []).map(transformCoverageEdge);
+    // Create sequential execution order edges between consecutive tests
+    // Tests are already ordered by created_at, so we chain them: test1 -> test2 -> test3 ...
+    const edges: TestGraphEdge[] = [];
+    for (let i = 0; i < nodes.length - 1; i++) {
+      edges.push({
+        id: `exec-order-${i}`,
+        source: nodes[i].id,
+        target: nodes[i + 1].id,
+        type: "default",
+        data: {
+          coverageType: "covers" as CoverageType,
+          metadata: { isExecutionOrder: true },
+        },
+      });
+    }
 
     return { nodes, edges, error: null };
   } catch (error) {
@@ -233,10 +246,11 @@ export function generateDemoTestData(): {
   nodes: TestGraphNode[];
   edges: TestGraphEdge[];
 } {
-  const demoTests: (Partial<TestNodeRow> & { github_link?: string })[] = [
+  // Demo tests ordered by creation time (earliest first = runs first)
+  const demoTests: (Partial<TestNodeRow> & { github_link?: string; created_at: string })[] = [
     // Stage 1: Smoke tests (run first)
     {
-      id: "test-6",
+      id: "test-1",
       name: "Database connection smoke test",
       test_type: "smoke",
       source_type: "generated",
@@ -244,11 +258,11 @@ export function generateDemoTestData(): {
       last_status: "passed",
       last_duration_ms: 89,
       stable_id: "test-db-smoke",
-      // No github_link for generated tests
+      created_at: "2026-01-01T00:00:00Z",
     },
     // Stage 2: Unit tests
     {
-      id: "test-5",
+      id: "test-2",
       name: "Auth service unit tests",
       test_type: "unit",
       source_type: "file",
@@ -258,10 +272,11 @@ export function generateDemoTestData(): {
       last_duration_ms: 234,
       stable_id: "test-auth-unit",
       github_link: `${DEMO_GITHUB_BASE}/src/services/__tests__/auth.test.ts#L1-L45`,
+      created_at: "2026-01-01T00:01:00Z",
     },
     // Stage 3: Contract tests
     {
-      id: "test-4",
+      id: "test-3",
       name: "API contract validation",
       test_type: "contract",
       source_type: "generated",
@@ -270,11 +285,11 @@ export function generateDemoTestData(): {
       last_duration_ms: 567,
       last_error: "Response schema mismatch: missing field 'email'",
       stable_id: "test-api-contract",
-      // No github_link for generated tests
+      created_at: "2026-01-01T00:02:00Z",
     },
-    // Stage 4: Integration/E2E tests
+    // Stage 4: E2E tests
     {
-      id: "test-1",
+      id: "test-4",
       name: "GET /api/users returns 200",
       test_type: "e2e",
       source_type: "file",
@@ -284,9 +299,10 @@ export function generateDemoTestData(): {
       last_duration_ms: 1234,
       stable_id: "test-users-get",
       github_link: `${DEMO_GITHUB_BASE}/tests/api/users.spec.ts#L10-L25`,
+      created_at: "2026-01-01T00:03:00Z",
     },
     {
-      id: "test-2",
+      id: "test-5",
       name: "User authentication flow",
       test_type: "e2e",
       source_type: "file",
@@ -296,10 +312,11 @@ export function generateDemoTestData(): {
       last_duration_ms: 3456,
       stable_id: "test-auth-flow",
       github_link: `${DEMO_GITHUB_BASE}/tests/auth/login.spec.ts#L1-L80`,
+      created_at: "2026-01-01T00:04:00Z",
     },
     // Stage 5: Security tests
     {
-      id: "test-3",
+      id: "test-6",
       name: "XSS vulnerability check for /search",
       test_type: "security",
       source_type: "external",
@@ -307,11 +324,11 @@ export function generateDemoTestData(): {
       last_status: "passed",
       last_duration_ms: 8234,
       stable_id: "test-xss-search",
-      // No github_link for external tests
+      created_at: "2026-01-01T00:05:00Z",
     },
     // Stage 6: Regression tests
     {
-      id: "test-8",
+      id: "test-7",
       name: "User registration regression",
       test_type: "regression",
       source_type: "file",
@@ -321,10 +338,11 @@ export function generateDemoTestData(): {
       last_duration_ms: 2345,
       stable_id: "test-reg-registration",
       github_link: `${DEMO_GITHUB_BASE}/tests/regression/registration.spec.ts#L1-L120`,
+      created_at: "2026-01-01T00:06:00Z",
     },
     // Stage 7: Performance tests (run last)
     {
-      id: "test-7",
+      id: "test-8",
       name: "Homepage load performance",
       test_type: "performance",
       source_type: "file",
@@ -333,6 +351,7 @@ export function generateDemoTestData(): {
       last_status: "pending",
       stable_id: "test-perf-homepage",
       github_link: `${DEMO_GITHUB_BASE}/tests/perf/homepage.k6.js#L1-L50`,
+      created_at: "2026-01-01T00:07:00Z",
     },
   ];
 
@@ -341,7 +360,6 @@ export function generateDemoTestData(): {
       {
         ...test,
         version_id: "demo",
-        created_at: new Date().toISOString(),
         description: null,
         start_line: null,
         end_line: null,
@@ -353,23 +371,20 @@ export function generateDemoTestData(): {
     )
   );
 
-  // Create execution order edges (test pipeline flow)
-  const executionOrderEdges: TestGraphEdge[] = [
-    // Smoke -> Unit
-    { id: "order-1", source: "test-6", target: "test-5", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-    // Unit -> Contract
-    { id: "order-2", source: "test-5", target: "test-4", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-    // Contract -> E2E tests
-    { id: "order-3", source: "test-4", target: "test-1", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-    { id: "order-4", source: "test-4", target: "test-2", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-    // E2E -> Security
-    { id: "order-5", source: "test-1", target: "test-3", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-    { id: "order-6", source: "test-2", target: "test-3", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-    // Security -> Regression
-    { id: "order-7", source: "test-3", target: "test-8", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-    // Regression -> Performance
-    { id: "order-8", source: "test-8", target: "test-7", type: "default", data: { coverageType: "covers" as CoverageType, metadata: {} } },
-  ];
+  // Create sequential execution order edges (linear chain based on creation order)
+  const edges: TestGraphEdge[] = [];
+  for (let i = 0; i < nodes.length - 1; i++) {
+    edges.push({
+      id: `exec-order-${i}`,
+      source: nodes[i].id,
+      target: nodes[i + 1].id,
+      type: "default",
+      data: {
+        coverageType: "covers" as CoverageType,
+        metadata: { isExecutionOrder: true },
+      },
+    });
+  }
 
-  return { nodes, edges: executionOrderEdges };
+  return { nodes, edges };
 }
