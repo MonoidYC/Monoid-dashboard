@@ -34,6 +34,7 @@ export function MarkdownEditor({
   // Search bar state
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<"insert" | "complete">("insert");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Detect [[Node: pattern (case-insensitive) and show autocomplete
@@ -190,25 +191,47 @@ export function MarkdownEditor({
       const textarea = textareaRef.current;
       const cursorPos = textarea.selectionStart;
       
-      // Insert [[Node: ComponentName]] at cursor position
-      const linkText = `[[Node: ${node.name}]]`;
-      const newValue =
-        value.slice(0, cursorPos) +
-        linkText +
-        value.slice(cursorPos);
-      onChange(newValue);
+      if (searchMode === "complete") {
+        // Complete the existing [[node: pattern
+        const textBeforeCursor = value.slice(0, cursorPos);
+        const pattern = /\[\[[Nn][Oo][Dd][Ee]:\s*[^\]]*$/;
+        const match = textBeforeCursor.match(pattern);
 
-      // Move cursor after the inserted link
-      const newCursorPos = cursorPos + linkText.length;
-      setTimeout(() => {
-        textarea.selectionStart = textarea.selectionEnd = newCursorPos;
-        textarea.focus();
-      }, 0);
+        if (match) {
+          const startPos = cursorPos - match[0].length;
+          const newValue =
+            value.slice(0, startPos) +
+            `[[Node: ${node.name}]]` +
+            value.slice(cursorPos);
+          onChange(newValue);
+
+          const newCursorPos = startPos + `[[Node: ${node.name}]]`.length;
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+            textarea.focus();
+          }, 0);
+        }
+      } else {
+        // Insert full [[Node: ComponentName]] at cursor position
+        const linkText = `[[Node: ${node.name}]]`;
+        const newValue =
+          value.slice(0, cursorPos) +
+          linkText +
+          value.slice(cursorPos);
+        onChange(newValue);
+
+        const newCursorPos = cursorPos + linkText.length;
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+          textarea.focus();
+        }, 0);
+      }
 
       setShowSearchBar(false);
       setSearchQuery("");
+      setSearchMode("insert");
     },
-    [value, onChange]
+    [value, onChange, searchMode]
   );
   
   // Toggle search bar with keyboard shortcut
@@ -217,15 +240,20 @@ export function MarkdownEditor({
       // Cmd/Ctrl + K to toggle search
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setShowSearchBar((prev) => !prev);
         if (!showSearchBar) {
+          setSearchMode("insert"); // Direct open = insert mode
+          setShowSearchBar(true);
           setTimeout(() => searchInputRef.current?.focus(), 0);
+        } else {
+          setShowSearchBar(false);
+          setSearchQuery("");
         }
       }
       // Escape to close search
       if (e.key === "Escape" && showSearchBar) {
         setShowSearchBar(false);
         setSearchQuery("");
+        setSearchMode("insert");
       }
     };
 
@@ -243,6 +271,7 @@ export function MarkdownEditor({
       {/* Search Bar Toggle Button */}
       <button
         onClick={() => {
+          setSearchMode("insert"); // Direct button click = insert mode
           setShowSearchBar(true);
           setTimeout(() => searchInputRef.current?.focus(), 0);
         }}
@@ -281,6 +310,7 @@ export function MarkdownEditor({
             onSelect={handleSelectNode}
             onClose={() => setShowAutocomplete(false)}
             onOpenSearch={() => {
+              setSearchMode("complete"); // From inline = complete mode
               setShowSearchBar(true);
               setTimeout(() => searchInputRef.current?.focus(), 0);
             }}
