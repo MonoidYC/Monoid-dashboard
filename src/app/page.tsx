@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2, Map as MapIcon, Building2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2, Map as MapIcon, Building2, CheckCircle2, XCircle, Clock, FileText } from "lucide-react";
 import { getRepoVersions, type VersionTestStats } from "@/lib/graph/queries";
 import type { RepoVersionRow, RepoRow, OrganizationRow } from "@/lib/graph/types";
 
@@ -226,6 +226,17 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {/* Docs Link - Only show if organization exists */}
+                      {organization && (
+                        <Link
+                          href={`/docs/${organization.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 text-xs font-medium hover:bg-fuchsia-500/20 transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Docs
+                        </Link>
+                      )}
                       {/* Roadmap Link */}
                       <Link
                         href={`/roadmap/${repo.id}`}
@@ -279,10 +290,10 @@ export default function Home() {
                             <div className="flex items-center gap-3">
                               {/* Stats */}
                               <div className="flex items-center gap-3 text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <Box className="w-3.5 h-3.5" />
-                                  {version.node_count ?? 0} nodes
-                                </span>
+                              <span className="flex items-center gap-1">
+                                <Box className="w-3.5 h-3.5" />
+                                {version.node_count ?? 0} nodes
+                              </span>
                                 {testStats.testCount > 0 && (
                                   <span className={`flex items-center gap-1 ${
                                     testStats.failedCount > 0
@@ -299,7 +310,7 @@ export default function Home() {
                                       <Clock className="w-3.5 h-3.5" />
                                     )}
                                     {testStats.testCount} tests
-                                  </span>
+                              </span>
                                 )}
                               </div>
                               {/* Action Links */}

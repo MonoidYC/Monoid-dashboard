@@ -137,6 +137,63 @@ export type Database = {
           },
         ]
       }
+      org_docs: {
+        Row: {
+          content: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_published: boolean
+          order_index: number
+          organization_id: string
+          repo_id: string | null
+          slug: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          organization_id: string
+          repo_id?: string | null
+          slug: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          order_index?: number
+          organization_id?: string
+          repo_id?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_docs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_docs_repo_id_fkey"
+            columns: ["repo_id"]
+            isOneToOne: false
+            referencedRelation: "repos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           avatar_url: string | null
