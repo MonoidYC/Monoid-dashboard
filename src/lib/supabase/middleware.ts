@@ -9,18 +9,47 @@ type CookieToSet = {
   options?: Partial<ResponseCookie>;
 };
 
+// Define public routes that don't require authentication
+const publicRoutes = [
+  "/login",
+  "/auth/callback",
+  "/auth/vscode-connect",
+  "/share",
+  "/api/mcp",
+  "/api/docs",
+  "/api/auth/vscode-session",
+  "/api/github-webhook",
+];
+
+function isPublicRoute(pathname: string): boolean {
+  return publicRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+}
+
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+  const response = NextResponse.next({ request });
+
+  // Skip auth entirely for public routes - no Supabase client needed
+  if (isPublicRoute(request.nextUrl.pathname)) {
+    return response;
+  }
+
+  // VS Code webview bypass: Skip auth entirely when ?vscode=true is present
+  const isVSCodeRequest = request.nextUrl.searchParams.get("vscode") === "true";
+  if (isVSCodeRequest) {
+    return response;
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     // If env vars are missing, just pass through
-    return supabaseResponse;
+    return response;
   }
+
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -54,32 +83,8 @@ export async function updateSession(request: NextRequest) {
     console.log(`[Middleware] ${request.nextUrl.pathname} - User: ${user ? user.email : "none"}`);
   }
 
-  // Define public routes that don't require authentication
-  const publicRoutes = [
-    "/login",
-    "/auth/callback",
-    "/auth/vscode-connect",
-    "/share",
-    "/api/mcp",
-    "/api/docs",
-    "/api/auth/vscode-session",
-    "/api/github-webhook",
-  ];
-
-  const isPublicRoute = publicRoutes.some(
-    (route) =>
-      request.nextUrl.pathname === route ||
-      request.nextUrl.pathname.startsWith(route + "/")
-  );
-
-  // VS Code webview bypass: Skip auth entirely when ?vscode=true is present
-  // This is a proof-of-concept approach - VS Code embeds get full access without auth
-  // Normal browser users still require authentication
-  const isVSCodeRequest = request.nextUrl.searchParams.get("vscode") === "true";
-
-  // Redirect to login if not authenticated and not on a public route
-  // Exception: VS Code webview requests bypass auth entirely
-  if (!user && !isPublicRoute && !isVSCodeRequest) {
+  // Redirect to login if not authenticated
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
