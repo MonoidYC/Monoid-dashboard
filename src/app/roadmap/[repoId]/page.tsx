@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -9,7 +9,7 @@ import {
   Loader2,
   Network,
   Github,
-  Map,
+  Map as MapIcon,
   ExternalLink,
   Check,
   AlertCircle,
@@ -43,6 +43,7 @@ interface OrgInfo {
 
 export default function RoadmapPage() {
   const params = useParams();
+  const router = useRouter();
   const repoId = params.repoId as string;
 
   // State
@@ -259,16 +260,16 @@ export default function RoadmapPage() {
       const target = e.target as HTMLElement;
       if (target.tagName.toLowerCase() === "node-link") {
         const nodeName = target.getAttribute("data-name");
-        if (nodeName && latestVersionId) {
+        if (nodeName) {
           const result = await getNodeByName(repoId, nodeName);
           if (result) {
-            // Navigate to graph with highlighted node
-            window.location.href = `/graph/${result.versionId}?highlight=${result.nodeId}`;
+            // Navigate to graph with highlighted node and zoom
+            router.push(`/graph/${result.versionId}?highlight=${result.nodeId}`);
           }
         }
       }
     },
-    [repoId, latestVersionId]
+    [repoId, router]
   );
 
   // Loading state
@@ -350,7 +351,7 @@ export default function RoadmapPage() {
               </>
             )}
             <div className="flex items-center gap-1.5 text-violet-400">
-              <Map className="w-4 h-4" />
+              <MapIcon className="w-4 h-4" />
               Roadmap
             </div>
           </div>

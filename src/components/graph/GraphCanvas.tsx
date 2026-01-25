@@ -8,6 +8,8 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  ReactFlowProvider,
   BackgroundVariant,
   MarkerType,
   addEdge,
@@ -49,25 +51,51 @@ interface GraphCanvasProps {
   highlightNodeId?: string;
 }
 
-export function GraphCanvas({
+// Wrapper component that provides ReactFlowProvider
+export function GraphCanvas(props: GraphCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <GraphCanvasInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function GraphCanvasInner({
   initialNodes,
   initialEdges,
   repo,
   version,
   highlightNodeId,
 }: GraphCanvasProps) {
+  const { setCenter, getNodes } = useReactFlow();
+  
   // Selected node for detail panel
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [hasZoomedToHighlight, setHasZoomedToHighlight] = useState(false);
   
-  // Auto-select highlighted node from URL param
+  // Auto-select and zoom to highlighted node from URL param
   useEffect(() => {
-    if (highlightNodeId && initialNodes.length > 0) {
+    if (highlightNodeId && initialNodes.length > 0 && !hasZoomedToHighlight) {
       const nodeToHighlight = initialNodes.find((n) => n.id === highlightNodeId);
       if (nodeToHighlight) {
         setSelectedNode(nodeToHighlight);
+        
+        // Wait for layout to settle, then zoom to node
+        setTimeout(() => {
+          const nodes = getNodes();
+          const targetNode = nodes.find((n) => n.id === highlightNodeId);
+          if (targetNode && targetNode.position) {
+            setCenter(
+              targetNode.position.x + 75, // Center on node (assuming ~150px width)
+              targetNode.position.y + 30, // Center on node (assuming ~60px height)
+              { zoom: 1.5, duration: 800 }
+            );
+          }
+          setHasZoomedToHighlight(true);
+        }, 1000); // Wait for force layout to settle
       }
     }
-  }, [highlightNodeId, initialNodes]);
+  }, [highlightNodeId, initialNodes, hasZoomedToHighlight, setCenter, getNodes]);
   
   // Modal state
   const [isNewNodeModalOpen, setIsNewNodeModalOpen] = useState(false);

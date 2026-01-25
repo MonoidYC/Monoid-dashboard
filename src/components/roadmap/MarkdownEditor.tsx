@@ -40,16 +40,20 @@ export function MarkdownEditor({
     const match = textBeforeCursor.match(pattern);
 
     if (match) {
-      // Get cursor position for dropdown
+      // Calculate position using the textarea's bounding rect for fixed positioning
       const textareaRect = textarea.getBoundingClientRect();
       const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 24;
       const lines = textBeforeCursor.split("\n");
       const currentLineNumber = lines.length - 1;
-      const charWidth = 8; // Approximate character width
+      const charWidth = 8;
+
+      // Use fixed positioning based on viewport
+      const lineTop = currentLineNumber * lineHeight;
+      const charLeft = lines[currentLineNumber].length * charWidth;
 
       setAutocompletePosition({
-        top: lineHeight * (currentLineNumber + 1) + 8,
-        left: Math.min(lines[currentLineNumber].length * charWidth, textareaRect.width - 300),
+        top: textareaRect.top + lineTop + lineHeight + 8 - textarea.scrollTop,
+        left: Math.min(textareaRect.left + charLeft + 24, window.innerWidth - 340),
       });
       setAutocompleteQuery(match[1]);
       setShowAutocomplete(true);
@@ -62,9 +66,37 @@ export function MarkdownEditor({
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
+      const newCursorPos = e.target.selectionStart;
       onChange(newValue);
-      setCursorPosition(e.target.selectionStart);
-      onCursorPositionChange?.(e.target.selectionStart);
+      setCursorPosition(newCursorPos);
+      onCursorPositionChange?.(newCursorPos);
+      
+      // Check for autocomplete trigger immediately with the new value
+      const textBeforeCursor = newValue.slice(0, newCursorPos);
+      const pattern = /\[\[Node:\s*([^\]]*?)$/;
+      const match = textBeforeCursor.match(pattern);
+
+      if (match) {
+        const textarea = e.target;
+        const textareaRect = textarea.getBoundingClientRect();
+        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 24;
+        const lines = textBeforeCursor.split("\n");
+        const currentLineNumber = lines.length - 1;
+        const charWidth = 8;
+
+        // Use fixed positioning based on viewport
+        const lineTop = currentLineNumber * lineHeight;
+        const charLeft = lines[currentLineNumber].length * charWidth;
+
+        setAutocompletePosition({
+          top: textareaRect.top + lineTop + lineHeight + 8 - textarea.scrollTop,
+          left: Math.min(textareaRect.left + charLeft + 24, window.innerWidth - 340),
+        });
+        setAutocompleteQuery(match[1]);
+        setShowAutocomplete(true);
+      } else {
+        setShowAutocomplete(false);
+      }
     },
     [onChange, onCursorPositionChange]
   );
@@ -163,7 +195,7 @@ export function MarkdownEditor({
 
       {showAutocomplete && (
         <div
-          className="absolute z-50"
+          className="fixed z-[100]"
           style={{
             top: autocompletePosition.top,
             left: autocompletePosition.left,
