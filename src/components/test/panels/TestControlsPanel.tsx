@@ -104,10 +104,9 @@ export function TestControlsPanel({
                         borderColor: `${TEST_STATUS_COLORS[status]}30`,
                       } : undefined}
                     >
-                      <StatusIcon 
-                        className="w-3 h-3" 
-                        style={{ color: TEST_STATUS_COLORS[status] }}
-                      />
+                      <span style={{ color: TEST_STATUS_COLORS[status] }}>
+                        <StatusIcon className="w-3 h-3" />
+                      </span>
                       <div className="flex-1">
                         <div 
                           className="text-[10px] font-medium"

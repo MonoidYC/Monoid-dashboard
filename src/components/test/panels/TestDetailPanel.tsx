@@ -102,10 +102,9 @@ export function TestDetailPanel({
           <div className="flex-1 min-w-0">
             {/* Status and type */}
             <div className="flex items-center gap-2 mb-2">
-              <StatusIcon
-                className="w-4 h-4"
-                style={{ color: statusColor }}
-              />
+              <span style={{ color: statusColor }}>
+                <StatusIcon className="w-4 h-4" />
+              </span>
               <span
                 className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
                 style={{

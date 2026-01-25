@@ -117,7 +117,7 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
         {/* Footer: File path and GitHub link */}
         <div className="flex items-center justify-between mt-1 pl-7">
           <div className="text-[10px] text-gray-600 truncate flex-1">
-            {data.filePath.split("/").pop()}:{data.startLine}
+          {data.filePath.split("/").pop()}:{data.startLine}
           </div>
           {data.githubLink && (
             <a

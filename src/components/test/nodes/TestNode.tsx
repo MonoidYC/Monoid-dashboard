@@ -152,10 +152,10 @@ function TestNodeComponent({ data, selected }: TestNodeProps) {
         {(data.filePath || data.githubLink) && (
           <div className="flex items-center justify-between mt-1.5">
             <div className="text-[9px] text-gray-600 truncate flex-1">
-              {data.filePath && (
+        {data.filePath && (
                 <>
-                  {data.filePath.split("/").slice(-2).join("/")}
-                  {data.startLine && `:${data.startLine}`}
+            {data.filePath.split("/").slice(-2).join("/")}
+            {data.startLine && `:${data.startLine}`}
                 </>
               )}
             </div>

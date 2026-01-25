@@ -30,7 +30,7 @@ export async function getRepoVersions(): Promise<{
   }
 
   // Get unique repo IDs
-  const repoIds = [...new Set(versions.map((v) => v.repo_id))];
+  const repoIds = Array.from(new Set(versions.map((v) => v.repo_id)));
 
   // Fetch all repos
   const { data: repos, error: repoError } = await supabase
