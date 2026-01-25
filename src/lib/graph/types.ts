@@ -123,13 +123,13 @@ export const CLUSTER_POSITIONS: Record<ClusterType, { x: number; y: number }> = 
 
 // Detect cluster from file path
 export function detectCluster(filePath: string): ClusterType {
-  const path = filePath.toLowerCase();
+  // Normalize path: lowercase and ensure it starts with / for consistent matching
+  const path = "/" + filePath.toLowerCase().replace(/^\/+/, "");
 
   // Frontend patterns
   if (
     path.includes("/components/") ||
     path.includes("/pages/") ||
-    path.includes("/app/") ||
     path.includes("/hooks/") ||
     path.includes("/ui/") ||
     path.includes("/views/") ||
@@ -140,6 +140,16 @@ export function detectCluster(filePath: string): ClusterType {
     if (path.includes("/api/")) {
       return "backend";
     }
+    return "frontend";
+  }
+
+  // Check for /app/ paths - could be frontend pages or backend API routes
+  if (path.includes("/app/")) {
+    // API routes are backend
+    if (path.includes("/api/")) {
+      return "backend";
+    }
+    // Otherwise it's a frontend page/component
     return "frontend";
   }
 
