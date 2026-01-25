@@ -249,43 +249,61 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
     // Intercept window.location changes for OAuth redirects
     // Note: window.location.assign/replace are readonly in some browsers (Safari),
     // so we wrap this in a try-catch and skip if not supported
+    // Also check if already intercepted to avoid redefinition errors
     let originalAssign: ((url: string) => void) | null = null;
     let originalReplace: ((url: string) => void) | null = null;
     
-    const interceptRedirect = (url: string, originalFn: (url: string) => void) => {
-      const isOAuthUrl = url.includes('github.com/login') || 
-                        url.includes('supabase.co/auth') ||
-                        url.includes('/auth/v1/authorize');
-      
-      if ((window as any).__isVSCodeWebview && isOAuthUrl) {
-        window.parent.postMessage({ type: 'openAuthUrl', url }, '*');
-        console.log('[Monoid] Intercepted OAuth redirect:', url);
-        return;
-      }
-      
-      originalFn(url);
-    };
+    // Check if already intercepted (prevent multiple interceptions)
+    const isAlreadyIntercepted = (window as any).__monoidLocationIntercepted === true;
+    
+    if (!isAlreadyIntercepted) {
+      const interceptRedirect = (url: string, originalFn: (url: string) => void) => {
+        const isOAuthUrl = url.includes('github.com/login') || 
+                          url.includes('supabase.co/auth') ||
+                          url.includes('/auth/v1/authorize');
+        
+        if ((window as any).__isVSCodeWebview && isOAuthUrl) {
+          window.parent.postMessage({ type: 'openAuthUrl', url }, '*');
+          console.log('[Monoid] Intercepted OAuth redirect:', url);
+          return;
+        }
+        
+        originalFn(url);
+      };
 
-    try {
-      originalAssign = window.location.assign.bind(window.location);
-      originalReplace = window.location.replace.bind(window.location);
-      
-      // These assignments may fail in Safari where location properties are readonly
-      Object.defineProperty(window.location, 'assign', {
-        value: (url: string) => interceptRedirect(url, originalAssign!),
-        writable: true,
-        configurable: true,
-      });
-      Object.defineProperty(window.location, 'replace', {
-        value: (url: string) => interceptRedirect(url, originalReplace!),
-        writable: true,
-        configurable: true,
-      });
-    } catch (e) {
-      // Safari and some browsers don't allow modifying window.location properties
-      console.warn('[Monoid] Could not intercept window.location methods:', e);
-      originalAssign = null;
-      originalReplace = null;
+      try {
+        originalAssign = window.location.assign.bind(window.location);
+        originalReplace = window.location.replace.bind(window.location);
+        
+        // Check if property descriptor allows redefinition
+        const assignDescriptor = Object.getOwnPropertyDescriptor(window.location, 'assign');
+        const replaceDescriptor = Object.getOwnPropertyDescriptor(window.location, 'replace');
+        
+        // Only try to redefine if configurable or if descriptor doesn't exist
+        if (!assignDescriptor || assignDescriptor.configurable) {
+          Object.defineProperty(window.location, 'assign', {
+            value: (url: string) => interceptRedirect(url, originalAssign!),
+            writable: true,
+            configurable: true,
+          });
+        }
+        
+        if (!replaceDescriptor || replaceDescriptor.configurable) {
+          Object.defineProperty(window.location, 'replace', {
+            value: (url: string) => interceptRedirect(url, originalReplace!),
+            writable: true,
+            configurable: true,
+          });
+        }
+        
+        // Mark as intercepted to prevent multiple attempts
+        (window as any).__monoidLocationIntercepted = true;
+      } catch (e) {
+        // Safari and some browsers don't allow modifying window.location properties
+        // Silently fail - this is expected in some environments
+        originalAssign = null;
+        originalReplace = null;
+      }
     }
 
     return () => {
@@ -293,18 +311,29 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('click', handleClick, true);
       
       // Restore original methods if we successfully patched them
-      if (originalAssign && originalReplace) {
+      if (originalAssign && originalReplace && (window as any).__monoidLocationIntercepted) {
         try {
-          Object.defineProperty(window.location, 'assign', {
-            value: originalAssign,
-            writable: true,
-            configurable: true,
-          });
-          Object.defineProperty(window.location, 'replace', {
-            value: originalReplace,
-            writable: true,
-            configurable: true,
-          });
+          const assignDescriptor = Object.getOwnPropertyDescriptor(window.location, 'assign');
+          const replaceDescriptor = Object.getOwnPropertyDescriptor(window.location, 'replace');
+          
+          if (!assignDescriptor || assignDescriptor.configurable) {
+            Object.defineProperty(window.location, 'assign', {
+              value: originalAssign,
+              writable: true,
+              configurable: true,
+            });
+          }
+          
+          if (!replaceDescriptor || replaceDescriptor.configurable) {
+            Object.defineProperty(window.location, 'replace', {
+              value: originalReplace,
+              writable: true,
+              configurable: true,
+            });
+          }
+          
+          // Clear the flag
+          delete (window as any).__monoidLocationIntercepted;
         } catch (e) {
           // Ignore restoration errors
         }
