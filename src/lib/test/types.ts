@@ -10,7 +10,7 @@ export type CodeNodeRow = Database["public"]["Tables"]["code_nodes"]["Row"];
 
 // Enum types
 export type TestType = Database["public"]["Enums"]["test_type"];
-export type SourceType = "file" | "generated" | "external";
+export type SourceType = "file" | "generated" | "external" | "synced";
 export type TestStatus = "passed" | "failed" | "skipped" | "pending";
 export type CoverageType = "covers" | "calls" | "tests_endpoint";
 
@@ -110,6 +110,7 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   file: "File",
   generated: "Generated",
   external: "External",
+  synced: "Synced",
 };
 
 // Get runner display name
