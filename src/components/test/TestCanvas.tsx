@@ -188,8 +188,7 @@ export function TestCanvas({
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.3 }}
+        defaultViewport={{ x: 250, y: 50, zoom: 0.85 }}
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
