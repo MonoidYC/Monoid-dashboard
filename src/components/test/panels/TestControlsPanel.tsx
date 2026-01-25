@@ -83,7 +83,7 @@ export function TestControlsPanel({
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 {(["passed", "failed", "pending", "skipped"] as TestStatus[]).map((status) => {
-                  const StatusIcon = STATUS_ICONS[status];
+                  const StatusIcon = STATUS_ICONS[status] || Clock; // Fallback to Clock if undefined
                   const count = stats[status as keyof TestStats] || 0;
                   const isActive = activeStatusFilter === status;
                   

@@ -54,7 +54,10 @@ interface TestNodeProps {
 function TestNodeComponent({ data, selected }: TestNodeProps) {
   const typeColor = TEST_TYPE_COLORS[data.testType];
   const statusColor = data.lastStatus ? TEST_STATUS_COLORS[data.lastStatus] : "#6b7280";
-  const RunnerIcon = RUNNER_ICONS[data.runner || "default"] || RUNNER_ICONS.default;
+  
+  // Ensure RunnerIcon is always defined
+  const runnerKey = data.runner || "default";
+  const RunnerIcon = (RUNNER_ICONS[runnerKey] || RUNNER_ICONS.default || Play) as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   
   // Ensure sourceType is valid, with explicit type checking
   const sourceType: SourceType = (data.sourceType && 
@@ -64,7 +67,7 @@ function TestNodeComponent({ data, selected }: TestNodeProps) {
                                     data.sourceType === "synced"))
     ? (data.sourceType as SourceType) 
     : "file";
-  const SourceIcon = SOURCE_ICONS[sourceType] || SOURCE_ICONS.file; // Double fallback
+  const SourceIcon = (SOURCE_ICONS[sourceType] || SOURCE_ICONS.file || FileCode) as React.ComponentType<{ className?: string }>;
 
   const isHighlighted = data.isHighlighted;
   const isFaded = data.isFaded;

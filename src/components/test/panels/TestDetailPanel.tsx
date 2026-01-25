@@ -94,8 +94,10 @@ export function TestDetailPanel({
                                     data.sourceType === "synced"))
     ? (data.sourceType as SourceType) 
     : "file";
-  const SourceIcon = SOURCE_ICONS[sourceType] || SOURCE_ICONS.file; // Double fallback
-  const StatusIcon = data.lastStatus ? STATUS_ICONS[data.lastStatus] : Clock;
+  const SourceIcon = (SOURCE_ICONS[sourceType] || SOURCE_ICONS.file || FileCode) as React.ComponentType<{ className?: string }>;
+  const StatusIcon = (data.lastStatus && STATUS_ICONS[data.lastStatus]) 
+    ? STATUS_ICONS[data.lastStatus] 
+    : Clock;
 
   // Build GitHub link - prefer direct link from node, otherwise generate from repo info
   const githubLink = data.githubLink

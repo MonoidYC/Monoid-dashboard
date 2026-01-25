@@ -29,10 +29,13 @@ import type {
 } from "@/lib/test/types";
 import { TEST_TYPE_COLORS } from "@/lib/test/types";
 
-// Custom node types
-const nodeTypes = {
+// Custom node types - ensure TestNode is defined
+// Use a function to ensure it's evaluated at render time
+const getNodeTypes = () => ({
   testNode: TestNode,
-} as any;
+});
+
+const nodeTypes = getNodeTypes();
 
 interface TestCanvasProps {
   initialNodes: TestGraphNode[];
@@ -187,7 +190,7 @@ export function TestCanvas({
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
+        nodeTypes={getNodeTypes()}
         defaultViewport={{ x: 250, y: 50, zoom: 0.85 }}
         minZoom={0.1}
         maxZoom={2}
