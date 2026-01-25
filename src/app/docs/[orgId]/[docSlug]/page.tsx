@@ -33,6 +33,7 @@ import {
   type OrganizationRow,
   type RepoRow,
 } from "@/lib/docs";
+import { getSupabase } from "@/lib/supabase";
 
 export default function DocEditorPage() {
   const params = useParams();
@@ -104,7 +105,6 @@ export default function DocEditorPage() {
     // Otherwise, we need to find the version for this node's repo
     if (node.repoId) {
       // Get the latest version for this repo
-      const { getSupabase } = await import("@/lib/supabase");
       const supabase = getSupabase();
       
       const { data: version } = await supabase
