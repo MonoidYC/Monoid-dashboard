@@ -121,10 +121,7 @@ export default function Home() {
       <header className="border-b border-white/[0.06] px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/[0.08] flex items-center justify-center">
-              <Network className="w-5 h-5 text-white/90" />
-            </div>
+          <div className="flex items-center">
             <span className="text-xl font-semibold tracking-tight text-white">
               Monoid
             </span>
