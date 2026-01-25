@@ -37,11 +37,12 @@ export default function LoginPage() {
 
       // Check if we're in a VS Code webview or opened from VS Code
       if (isVSCodeWebview() || fromVscode) {
-        // Use the dedicated VS Code callback route (avoids URL encoding issues)
+        // For VS Code: use implicit flow (hash-based) to avoid PKCE cookie issues
+        // The tokens will be in the URL hash, handled client-side
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: "github",
           options: {
-            redirectTo: `${window.location.origin}/auth/callback/vscode`,
+            redirectTo: `${window.location.origin}/auth/vscode-connect`,
             skipBrowserRedirect: isVSCodeWebview(), // Only skip redirect if in webview
           },
         });

@@ -1,26 +1,40 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { CheckCircle2, ExternalLink, Copy, Check, Loader2 } from "lucide-react";
+import { useEffect, useState, Suspense, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { CheckCircle2, ExternalLink, Copy, Check, Loader2, AlertCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 function VSCodeConnectContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  // Session can come from: 
+  // 1. URL query param (from server callback - base64 encoded)
+  // 2. Supabase client (after exchanging code from URL hash/params)
   const sessionParam = searchParams.get("session");
+  const errorParam = searchParams.get("error");
+  const errorDescription = searchParams.get("error_description");
+  
+  const [session, setSession] = useState<string | null>(sessionParam);
+  const [isLoading, setIsLoading] = useState(!sessionParam);
+  const [error, setError] = useState<string | null>(
+    errorParam ? (errorDescription || errorParam) : null
+  );
   const [copied, setCopied] = useState(false);
   const [opened, setOpened] = useState(false);
 
   // Generate the VS Code URI
-  const vscodeUri = sessionParam 
-    ? `vscode://monoid.monoid-visualize/auth/callback?session=${encodeURIComponent(sessionParam)}`
+  const vscodeUri = session 
+    ? `vscode://monoid.monoid-visualize/auth/callback?session=${encodeURIComponent(session)}`
     : null;
 
-  const handleConnectToVSCode = () => {
+  const handleConnectToVSCode = useCallback(() => {
     if (vscodeUri) {
       window.location.href = vscodeUri;
       setOpened(true);
     }
-  };
+  }, [vscodeUri]);
 
   const handleCopyUri = async () => {
     if (vscodeUri) {
@@ -30,37 +44,139 @@ function VSCodeConnectContent() {
     }
   };
 
-  // Auto-open VS Code after a short delay
+  // Handle OAuth callback - exchange code for session
   useEffect(() => {
-    if (vscodeUri && !opened) {
+    // If we already have a session param, no need to check for OAuth callback
+    if (sessionParam) {
+      setIsLoading(false);
+      return;
+    }
+
+    const handleOAuthCallback = async () => {
+      try {
+        const supabase = createClient();
+        
+        // Check if there's a code in the URL (OAuth callback)
+        // Supabase handles the hash fragment internally via onAuthStateChange
+        const { data: { session: supabaseSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error("[VSCode Connect] Session error:", sessionError);
+          setError(sessionError.message);
+          setIsLoading(false);
+          return;
+        }
+
+        if (supabaseSession) {
+          // We have a session! Encode it for VS Code
+          const sessionData = {
+            access_token: supabaseSession.access_token,
+            refresh_token: supabaseSession.refresh_token,
+            expires_at: supabaseSession.expires_at,
+            user: {
+              id: supabaseSession.user.id,
+              email: supabaseSession.user.email,
+              user_metadata: supabaseSession.user.user_metadata,
+            },
+          };
+          const sessionBase64 = btoa(JSON.stringify(sessionData));
+          setSession(sessionBase64);
+          setIsLoading(false);
+        } else {
+          // No session yet - set up listener for auth state changes
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, newSession) => {
+              console.log("[VSCode Connect] Auth state changed:", event);
+              
+              if (event === 'SIGNED_IN' && newSession) {
+                const sessionData = {
+                  access_token: newSession.access_token,
+                  refresh_token: newSession.refresh_token,
+                  expires_at: newSession.expires_at,
+                  user: {
+                    id: newSession.user.id,
+                    email: newSession.user.email,
+                    user_metadata: newSession.user.user_metadata,
+                  },
+                };
+                const sessionBase64 = btoa(JSON.stringify(sessionData));
+                setSession(sessionBase64);
+                setIsLoading(false);
+                subscription.unsubscribe();
+              }
+            }
+          );
+
+          // Give it a moment for Supabase to process the URL hash
+          setTimeout(() => {
+            if (!session) {
+              setError("No authentication session found. Please try signing in again.");
+              setIsLoading(false);
+            }
+          }, 5000);
+
+          return () => {
+            subscription.unsubscribe();
+          };
+        }
+      } catch (err) {
+        console.error("[VSCode Connect] Error:", err);
+        setError("Failed to process authentication. Please try again.");
+        setIsLoading(false);
+      }
+    };
+
+    handleOAuthCallback();
+  }, [sessionParam, session]);
+
+  // Auto-open VS Code after session is ready
+  useEffect(() => {
+    if (vscodeUri && !opened && !isLoading) {
       const timer = setTimeout(() => {
         handleConnectToVSCode();
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [vscodeUri, opened]);
+  }, [vscodeUri, opened, isLoading, handleConnectToVSCode]);
 
-  if (!sessionParam) {
+  // Loading state
+  if (isLoading) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center bg-[#08080a] p-8">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-violet-400 mx-auto mb-4" />
+          <p className="text-gray-400">Processing authentication...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Error state
+  if (error || !session) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-[#08080a] p-8">
         <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8 text-red-400" />
+          </div>
           <h1 className="text-2xl font-semibold text-white mb-4">
             Authentication Error
           </h1>
           <p className="text-gray-400 mb-6">
-            No session was found. Please try signing in again from VS Code.
+            {error || "No session was found. Please try signing in again from VS Code."}
           </p>
           <a
-            href="/login"
+            href="/login?from=vscode"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/15 transition-colors"
           >
-            Back to Login
+            Try Again
           </a>
         </div>
       </main>
     );
   }
 
+  // Success state
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-[#08080a] p-8">
       <div className="text-center max-w-md">
