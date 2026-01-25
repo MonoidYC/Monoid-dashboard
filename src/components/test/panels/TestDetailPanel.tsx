@@ -10,6 +10,7 @@ import {
   FileCode,
   Sparkles,
   Globe,
+  Github,
   AlertCircle,
   CheckCircle,
   XCircle,
