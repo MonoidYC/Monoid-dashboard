@@ -27,7 +27,12 @@ export async function analyzeFeasibility(
     return createErrorResult("Gemini API key not configured");
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 
   // 1. Find the repository in Supabase
   const { data: repo, error: repoError } = await supabase
