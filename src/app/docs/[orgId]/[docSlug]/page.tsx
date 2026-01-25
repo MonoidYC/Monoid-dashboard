@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -27,6 +27,8 @@ import {
   deleteDoc,
   togglePublishStatus,
   loadFromStorage,
+  searchNodesForOrgAutocomplete,
+  searchNodesForRepoAutocomplete,
   type OrgDocRow,
   type OrganizationRow,
   type RepoRow,
@@ -68,6 +70,58 @@ export default function DocEditorPage() {
 
   // Show preview panel
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Preview container ref for handling node link clicks
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicking on node links in preview
+  const handlePreviewClick = useCallback(async (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const nodeLink = target.closest('[data-node-name]') as HTMLElement;
+    
+    if (!nodeLink) return;
+    
+    e.preventDefault();
+    const nodeName = nodeLink.getAttribute('data-node-name');
+    if (!nodeName) return;
+
+    // Search for the node
+    let nodes;
+    if (repoId) {
+      nodes = await searchNodesForRepoAutocomplete(repoId, nodeName, 1);
+    } else {
+      nodes = await searchNodesForOrgAutocomplete(orgId, nodeName, 1);
+    }
+
+    if (nodes.length === 0) {
+      alert(`Node "${nodeName}" not found. Make sure the component exists in the codebase.`);
+      return;
+    }
+
+    const node = nodes[0];
+    
+    // If doc has a specific repo, we can go directly to the graph
+    // Otherwise, we need to find the version for this node's repo
+    if (node.repoId) {
+      // Get the latest version for this repo
+      const { getSupabase } = await import("@/lib/supabase");
+      const supabase = getSupabase();
+      
+      const { data: version } = await supabase
+        .from("repo_versions")
+        .select("id")
+        .eq("repo_id", node.repoId)
+        .order("ingested_at", { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (version) {
+        router.push(`/graph/${version.id}?highlight=${node.id}`);
+      } else {
+        alert(`No version found for repository containing "${nodeName}"`);
+      }
+    }
+  }, [repoId, orgId, router]);
 
   // Load data
   useEffect(() => {
@@ -428,7 +482,11 @@ export default function DocEditorPage() {
 
         {/* Preview Panel */}
         {showPreview && (
-          <div className="w-1/2 overflow-y-auto p-6">
+          <div 
+            ref={previewRef}
+            className="w-1/2 overflow-y-auto p-6"
+            onClick={handlePreviewClick}
+          >
             <div className="prose prose-invert max-w-none">
               {content ? (
                 <div
@@ -469,10 +527,10 @@ function renderMarkdown(content: string): string {
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-white/5 rounded-lg p-4 overflow-x-auto my-4"><code>$2</code></pre>')
     // Inline code
     .replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1.5 py-0.5 rounded text-sm">$1</code>')
-    // Node links - style them specially
+    // Node links - make them clickable
     .replace(
       /\[\[Node:\s*([^\]]+)\]\]/g,
-      '<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-300 rounded text-sm font-medium">$1</span>'
+      '<a href="#" data-node-name="$1" class="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 hover:text-violet-200 rounded text-sm font-medium cursor-pointer transition-colors no-underline">$1 →</a>'
     )
     // Lists
     .replace(/^\s*[-*]\s+(.*)$/gm, '<li class="ml-4 my-1">$1</li>')
