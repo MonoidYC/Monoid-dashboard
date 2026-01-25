@@ -37,11 +37,11 @@ export default function LoginPage() {
 
       // Check if we're in a VS Code webview or opened from VS Code
       if (isVSCodeWebview() || fromVscode) {
-        // Get OAuth URL and open in external browser (or redirect if already in browser)
+        // Use the dedicated VS Code callback route (avoids URL encoding issues)
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: "github",
           options: {
-            redirectTo: `${window.location.origin}/auth/callback?from=vscode`,
+            redirectTo: `${window.location.origin}/auth/callback/vscode`,
             skipBrowserRedirect: isVSCodeWebview(), // Only skip redirect if in webview
           },
         });
