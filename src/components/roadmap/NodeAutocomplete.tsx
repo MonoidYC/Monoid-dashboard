@@ -11,6 +11,7 @@ interface NodeAutocompleteProps {
   query: string;
   onSelect: (node: AutocompleteNode) => void;
   onClose: () => void;
+  embedded?: boolean; // When true, renders without outer container styling
 }
 
 export function NodeAutocomplete({
@@ -18,6 +19,7 @@ export function NodeAutocomplete({
   query,
   onSelect,
   onClose,
+  embedded = false,
 }: NodeAutocompleteProps) {
   const [nodes, setNodes] = useState<AutocompleteNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,21 +111,25 @@ export function NodeAutocomplete({
     return NODE_TYPE_COLORS[nodeType as keyof typeof NODE_TYPE_COLORS] || "#6b7280";
   };
 
+  // Wrapper classes depend on embedded mode
+  const containerClasses = embedded
+    ? "w-full max-h-72 overflow-hidden"
+    : "w-80 max-h-72 overflow-hidden rounded-xl bg-[#18181b] border border-white/10 shadow-2xl";
+
   return (
-    <div
-      ref={containerRef}
-      className="w-80 max-h-72 overflow-hidden rounded-xl bg-[#18181b] border border-white/10 shadow-2xl"
-    >
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
-        <Search className="w-4 h-4 text-gray-500" />
-        <span className="text-sm text-gray-400">
-          {query ? `Searching "${query}"...` : "Select a component"}
-        </span>
-      </div>
+    <div ref={containerRef} className={containerClasses}>
+      {/* Header - only show when not embedded */}
+      {!embedded && (
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5">
+          <Search className="w-4 h-4 text-gray-500" />
+          <span className="text-sm text-gray-400">
+            {query ? `Searching "${query}"...` : "Select a component"}
+          </span>
+        </div>
+      )}
 
       {/* Results */}
-      <div className="max-h-56 overflow-y-auto">
+      <div className={embedded ? "max-h-64 overflow-y-auto" : "max-h-56 overflow-y-auto"}>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
@@ -140,14 +146,14 @@ export function NodeAutocomplete({
                 key={node.id}
                 onClick={() => onSelect(node)}
                 onMouseEnter={() => setSelectedIndex(index)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
                   index === selectedIndex
                     ? "bg-white/5"
                     : "hover:bg-white/3"
                 }`}
               >
                 <div
-                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: getNodeColor(node.nodeType) }}
                 />
                 <div className="flex-1 min-w-0">
@@ -175,12 +181,14 @@ export function NodeAutocomplete({
         )}
       </div>
 
-      {/* Footer hint */}
-      <div className="px-3 py-2 border-t border-white/5 text-[10px] text-gray-500">
-        <span className="text-gray-600">↑↓</span> navigate{" "}
-        <span className="text-gray-600 ml-2">↵</span> select{" "}
-        <span className="text-gray-600 ml-2">esc</span> close
-      </div>
+      {/* Footer hint - only show when not embedded */}
+      {!embedded && (
+        <div className="px-3 py-2 border-t border-white/5 text-[10px] text-gray-500">
+          <span className="text-gray-600">↑↓</span> navigate{" "}
+          <span className="text-gray-600 ml-2">↵</span> select{" "}
+          <span className="text-gray-600 ml-2">esc</span> close
+        </div>
+      )}
     </div>
   );
 }
