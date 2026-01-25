@@ -57,12 +57,8 @@ export async function updateSession(request: NextRequest) {
     "/share",
     "/api/mcp",
     "/api/docs",
+    "/api/auth/vscode-session", // Allow VS Code to set session
   ];
-
-  // Check if request is from VS Code webview (via URL param)
-  // This allows the webview to load pages without cookie-based auth
-  // The actual auth is handled client-side via session passed from VS Code
-  const isVSCodeWebview = request.nextUrl.searchParams.get("vscode") === "true";
 
   const isPublicRoute = publicRoutes.some(
     (route) =>
@@ -71,8 +67,7 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Redirect to login if not authenticated and not on a public route
-  // Allow VS Code webview requests through (auth handled client-side)
-  if (!user && !isPublicRoute && !isVSCodeWebview) {
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

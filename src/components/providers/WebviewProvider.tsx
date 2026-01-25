@@ -136,22 +136,50 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
         if (event.data?.session) {
           setAuthSession(event.data.session);
         
-          // Also try to set the session in Supabase client
-          try {
-            const supabase = getSupabase();
-            supabase.auth.setSession({
-              access_token: event.data.session.access_token,
-              refresh_token: event.data.session.refresh_token,
-            }).then(({ error }) => {
-              if (error) {
-                console.warn('[Monoid] Could not set Supabase session:', error);
-              } else {
-                console.log('[Monoid] Supabase session set successfully');
+          // Set session in Supabase client AND set server-side cookies
+          const setSession = async () => {
+            try {
+              // First, set server-side cookies via API endpoint
+              const response = await fetch('/api/auth/vscode-session', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                credentials: 'include', // Important: include cookies
+                body: JSON.stringify({
+                  access_token: event.data.session.access_token,
+                  refresh_token: event.data.session.refresh_token,
+                }),
+              });
+
+              if (!response.ok) {
+                const error = await response.json();
+                console.warn('[Monoid] Failed to set server session:', error);
+                return;
               }
-            });
-          } catch (e) {
-            console.warn('[Monoid] Could not set Supabase session:', e);
-          }
+
+              console.log('[Monoid] Server session cookies set successfully');
+
+              // Also set client-side Supabase session
+              const supabase = getSupabase();
+              const { error } = await supabase.auth.setSession({
+                access_token: event.data.session.access_token,
+                refresh_token: event.data.session.refresh_token,
+              });
+
+              if (error) {
+                console.warn('[Monoid] Could not set Supabase client session:', error);
+              } else {
+                console.log('[Monoid] Supabase client session set successfully');
+                // Reload to pick up the new session cookies
+                window.location.reload();
+              }
+            } catch (e) {
+              console.warn('[Monoid] Could not set session:', e);
+            }
+          };
+
+          setSession();
         }
       }
     };
