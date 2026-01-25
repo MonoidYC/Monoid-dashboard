@@ -231,7 +231,7 @@ export default function Home() {
                         <Link
                           href={`/docs/${organization.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 text-xs font-medium hover:bg-fuchsia-500/20 transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-400 text-xs font-medium hover:bg-cyan-500/25 transition-colors"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           Docs
