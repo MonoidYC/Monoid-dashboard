@@ -122,8 +122,10 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
     document.addEventListener('click', handleClick, true);
 
     // Intercept window.location changes for OAuth redirects
-    const originalAssign = window.location.assign.bind(window.location);
-    const originalReplace = window.location.replace.bind(window.location);
+    // Note: window.location.assign/replace are readonly in some browsers (Safari),
+    // so we wrap this in a try-catch and skip if not supported
+    let originalAssign: ((url: string) => void) | null = null;
+    let originalReplace: ((url: string) => void) | null = null;
     
     const interceptRedirect = (url: string, originalFn: (url: string) => void) => {
       const isOAuthUrl = url.includes('github.com/login') || 
@@ -139,20 +141,49 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
       originalFn(url);
     };
 
-    window.location.assign = (url: string) => interceptRedirect(url, originalAssign);
-    window.location.replace = (url: string) => interceptRedirect(url, originalReplace);
-
-    // Also intercept setting window.location.href
-    let currentHref = window.location.href;
-    const checkHrefChange = () => {
-      // This won't actually work for direct href sets, but we try
-    };
+    try {
+      originalAssign = window.location.assign.bind(window.location);
+      originalReplace = window.location.replace.bind(window.location);
+      
+      // These assignments may fail in Safari where location properties are readonly
+      Object.defineProperty(window.location, 'assign', {
+        value: (url: string) => interceptRedirect(url, originalAssign!),
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(window.location, 'replace', {
+        value: (url: string) => interceptRedirect(url, originalReplace!),
+        writable: true,
+        configurable: true,
+      });
+    } catch (e) {
+      // Safari and some browsers don't allow modifying window.location properties
+      console.warn('[Monoid] Could not intercept window.location methods:', e);
+      originalAssign = null;
+      originalReplace = null;
+    }
 
     return () => {
       window.removeEventListener('message', handleMessage);
       document.removeEventListener('click', handleClick, true);
-      window.location.assign = originalAssign;
-      window.location.replace = originalReplace;
+      
+      // Restore original methods if we successfully patched them
+      if (originalAssign && originalReplace) {
+        try {
+          Object.defineProperty(window.location, 'assign', {
+            value: originalAssign,
+            writable: true,
+            configurable: true,
+          });
+          Object.defineProperty(window.location, 'replace', {
+            value: originalReplace,
+            writable: true,
+            configurable: true,
+          });
+        } catch (e) {
+          // Ignore restoration errors
+        }
+      }
     };
   }, []);
 
