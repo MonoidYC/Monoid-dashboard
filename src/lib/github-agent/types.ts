@@ -57,6 +57,7 @@ export interface IssueWebhookPayload {
   sender: {
     login: string;
     id: number;
+    type: "User" | "Bot" | "Organization";
   };
   label?: GitHubLabel; // Present when action is "labeled" or "unlabeled"
   installation?: GitHubInstallation;
@@ -71,6 +72,7 @@ export interface IssueCommentWebhookPayload {
   sender: {
     login: string;
     id: number;
+    type: "User" | "Bot" | "Organization";
   };
   installation?: GitHubInstallation;
 }
@@ -82,6 +84,7 @@ export interface GitHubComment {
     login: string;
     id: number;
     avatar_url: string;
+    type: "User" | "Bot" | "Organization";
   };
   created_at: string;
   updated_at: string;

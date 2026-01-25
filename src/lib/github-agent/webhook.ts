@@ -48,16 +48,19 @@ export function shouldProcessIssueEvent(
     return false;
   }
 
-  // Process new issues
-  if (action === "opened") {
-    return true;
-  }
+  // DON'T auto-process new issues - only respond to explicit /monoid commands
+  // This prevents unwanted automatic analysis
+  // if (action === "opened") {
+  //   return true;
+  // }
 
-  // Process when specific label is added (e.g., "analyze" or "feasibility")
+  // Process when specific trigger label is added
+  // IMPORTANT: Only trigger on explicit "monoid-analyze" label, NOT "feasibility" labels
+  // (since our bot adds "feasibility: X" labels which would cause infinite loops)
   if (action === "labeled" && labelName) {
-    const triggerLabels = ["analyze", "feasibility", "monoid-analyze"];
+    const triggerLabels = ["monoid-analyze"];
     return triggerLabels.some(
-      (trigger) => labelName.toLowerCase().includes(trigger)
+      (trigger) => labelName.toLowerCase() === trigger
     );
   }
 

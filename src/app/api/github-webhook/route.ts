@@ -60,6 +60,12 @@ export async function POST(req: NextRequest) {
       const commentData = data as IssueCommentWebhookPayload;
       const { issue, comment, repository, installation } = commentData;
 
+      // Skip comments from bots (prevents infinite loops)
+      if (comment.user.type === "Bot") {
+        console.log(`[${requestId}] Skipping bot comment from ${comment.user.login}`);
+        return NextResponse.json({ message: "Bot comment ignored", requestId });
+      }
+
       // Check for /monoid command in the comment
       const monoidCommand = parseMonoidCommand(comment.body);
       
@@ -113,6 +119,13 @@ export async function POST(req: NextRequest) {
     if (!shouldProcessIssueEvent(event, issueData.action, labelName)) {
       console.log(`[${requestId}] Skipping event: ${event}/${issueData.action}`);
       return NextResponse.json({ message: "Event ignored", requestId });
+    }
+
+    // Skip events triggered by bots (prevents infinite loops)
+    const sender = issueData.sender;
+    if (sender?.type === "Bot") {
+      console.log(`[${requestId}] Skipping bot-triggered issue event from ${sender.login}`);
+      return NextResponse.json({ message: "Bot event ignored", requestId });
     }
 
     const { issue, repository, installation } = issueData;
