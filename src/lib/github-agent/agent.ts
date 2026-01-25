@@ -219,7 +219,7 @@ Keep the response concise but actionable. Focus on practical insights.`;
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.0-flash-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         temperature: 0.3,
