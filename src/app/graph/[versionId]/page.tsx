@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle, Network, Map } from "lucide-react";
 import { GraphCanvas } from "@/components/graph";
 import { useGraphData } from "@/components/graph/hooks";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function GraphPage() {
   const params = useParams();
@@ -121,6 +122,8 @@ export default function GraphPage() {
             <span>·</span>
             <span>{edges.length} edges</span>
           </div>
+
+          <SignOutButton />
         </div>
       </header>
 

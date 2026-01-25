@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle, FlaskConical } from "lucide-react";
 import { TestCanvas } from "@/components/test";
 import { useTestData } from "@/components/test/hooks";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function TestsPage() {
   const params = useParams();
@@ -114,6 +115,8 @@ export default function TestsPage() {
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>{nodes.length} tests</span>
           </div>
+
+          <SignOutButton />
         </div>
       </header>
 

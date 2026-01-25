@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { getOrganizationsWithRepos } from "@/lib/graph/queries";
 import type { OrganizationWithRepos, RepoWithVersions, RepoVersionRow } from "@/lib/graph/types";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function Home() {
   const [orgData, setOrgData] = useState<OrganizationWithRepos[]>([]);
@@ -125,7 +126,12 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#08080a]">
+    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#08080a] relative">
+      {/* Sign Out Button - Top Right */}
+      <div className="absolute top-4 right-4">
+        <SignOutButton />
+      </div>
+      
       <div className="max-w-4xl mx-auto text-center">
         {/* Logo */}
         <div className="mb-10 flex items-center justify-center gap-4">
