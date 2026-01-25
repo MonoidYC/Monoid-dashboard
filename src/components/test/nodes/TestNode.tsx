@@ -14,6 +14,7 @@ import {
   Sparkles,
   Globe,
   Github,
+  Video,
 } from "lucide-react";
 import type { TestNodeData, TestType, SourceType } from "@/lib/test/types";
 import {
@@ -161,29 +162,43 @@ function TestNodeComponent({ data, selected }: TestNodeProps) {
           )}
         </div>
 
-        {/* File path (if file-based) and GitHub link */}
-        {(data.filePath || data.githubLink) && (
+        {/* File path (if file-based) and action links */}
+        {(data.filePath || data.githubLink || data.lastRanVideo) && (
           <div className="flex items-center justify-between mt-1.5">
             <div className="text-[9px] text-gray-600 truncate flex-1">
-        {data.filePath && (
+              {data.filePath && (
                 <>
-            {data.filePath.split("/").slice(-2).join("/")}
-            {data.startLine && `:${data.startLine}`}
+                  {data.filePath.split("/").slice(-2).join("/")}
+                  {data.startLine && `:${data.startLine}`}
                 </>
               )}
             </div>
-            {data.githubLink && (
-              <a
-                href={data.githubLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="p-1 hover:bg-white/10 rounded transition-colors ml-1"
-                title="View on GitHub"
-              >
-                <Github className="w-3 h-3 text-white/40 hover:text-white/70" />
-              </a>
-            )}
+            <div className="flex items-center gap-0.5">
+              {data.lastRanVideo && (
+                <a
+                  href={data.lastRanVideo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1 hover:bg-white/10 rounded transition-colors"
+                  title="Watch test recording"
+                >
+                  <Video className="w-3 h-3 text-blue-400 hover:text-blue-300" />
+                </a>
+              )}
+              {data.githubLink && (
+                <a
+                  href={data.githubLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1 hover:bg-white/10 rounded transition-colors"
+                  title="View on GitHub"
+                >
+                  <Github className="w-3 h-3 text-white/40 hover:text-white/70" />
+                </a>
+              )}
+            </div>
           </div>
         )}
       </div>

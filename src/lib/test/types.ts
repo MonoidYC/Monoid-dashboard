@@ -36,6 +36,7 @@ export interface TestNodeData extends Record<string, unknown> {
   lastRunAt: string | null;
   lastDurationMs: number | null;
   lastError: string | null;
+  lastRanVideo: string | null; // URL to the video recording of the last test run
   stableId: string;
   metadata: Record<string, unknown>;
   githubLink: string | null; // Direct GitHub permalink to the test file/lines

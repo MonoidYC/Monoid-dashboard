@@ -42,6 +42,7 @@ function transformTestNode(
     lastRunAt: row.last_run_at,
     lastDurationMs: row.last_duration_ms,
     lastError: row.last_error,
+    lastRanVideo: (row as any).last_ran_video || null,
     stableId: row.stable_id,
     metadata: (row.metadata as Record<string, unknown>) || {},
     githubLink: (row as any).github_link || null,
