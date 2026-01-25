@@ -106,6 +106,27 @@ export function parseMonoidCommand(commentBody: string): string | null {
 }
 
 /**
+ * Check if the command is a visualization request
+ */
+export function isVisualizationRequest(command: string): boolean {
+  const visualizeKeywords = [
+    "visualise",
+    "visualize",
+    "diagram",
+    "chart",
+    "graph",
+    "mermaid",
+    "flow",
+    "architecture",
+    "show me",
+    "draw",
+  ];
+
+  const lowerCommand = command.toLowerCase();
+  return visualizeKeywords.some((keyword) => lowerCommand.includes(keyword));
+}
+
+/**
  * Check if the comment contains a feasibility-related question
  */
 export function isFeasibilityRequest(command: string): boolean {

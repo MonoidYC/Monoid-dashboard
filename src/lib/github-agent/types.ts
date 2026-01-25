@@ -113,6 +113,13 @@ export interface FeasibilityAnalysisResult {
   analysisTimestamp: string;
 }
 
+export interface VisualizationResult {
+  comment: string;
+  mermaidDiagram: string;
+  affectedNodes: string[];
+  analysisTimestamp: string;
+}
+
 // Code Node context for analysis
 export interface CodeNodeContext {
   id: string;

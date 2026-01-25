@@ -2,7 +2,7 @@
 // This module provides functionality to analyze GitHub issues
 // and post feasibility assessments as comments.
 
-export { analyzeFeasibility } from "./agent";
+export { analyzeFeasibility, analyzeAndVisualize } from "./agent";
 export {
   postIssueComment,
   addIssueLabel,
@@ -15,6 +15,7 @@ export {
   shouldProcessCommentEvent,
   parseMonoidCommand,
   isFeasibilityRequest,
+  isVisualizationRequest,
   generateRequestId,
 } from "./webhook";
 export type {
@@ -27,6 +28,7 @@ export type {
   IssueCommentWebhookPayload,
   FeasibilityAnalysisParams,
   FeasibilityAnalysisResult,
+  VisualizationResult,
   CodeNodeContext,
   GitHubCommentResponse,
 } from "./types";
