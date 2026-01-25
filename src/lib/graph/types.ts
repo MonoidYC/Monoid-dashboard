@@ -9,6 +9,30 @@ export type RepoRow = Database["public"]["Tables"]["repos"]["Row"];
 export type WorkspaceRow = Database["public"]["Tables"]["workspaces"]["Row"];
 export type OrganizationRow = Database["public"]["Tables"]["organizations"]["Row"];
 
+// Organization type (until database types are regenerated)
+export interface OrganizationRow {
+  id: string;
+  name: string;
+  slug: string;
+  avatar_url: string | null;
+  github_id: string | null;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+// Organization with its repos
+export interface OrganizationWithRepos {
+  organization: OrganizationRow;
+  repos: RepoWithVersions[];
+}
+
+// Repo with its versions
+export interface RepoWithVersions {
+  repo: RepoRow;
+  versions: RepoVersionRow[];
+}
+
 // Enum types
 export type NodeType = Database["public"]["Enums"]["node_type"];
 export type EdgeType = Database["public"]["Enums"]["edge_type"];

@@ -9,6 +9,9 @@ import type {
   GraphEdge,
   CodeNodeData,
   CodeEdgeData,
+  OrganizationRow,
+  OrganizationWithRepos,
+  RepoWithVersions,
 } from "./types";
 import { detectCluster } from "./types";
 
@@ -119,6 +122,190 @@ export async function getRepoVersions(): Promise<{
       return { version, repo, organization, testStats };
     })
     .filter((item): item is { version: RepoVersionRow; repo: RepoRow; organization: OrganizationRow | null; testStats: VersionTestStats } => item !== null);
+}
+
+// Fetch all organizations
+export async function getOrganizations(): Promise<OrganizationRow[]> {
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching organizations:", error);
+    return [];
+  }
+
+  return (data as OrganizationRow[]) || [];
+}
+
+// Fetch organizations with their repos and versions (hierarchical data)
+export async function getOrganizationsWithRepos(): Promise<OrganizationWithRepos[]> {
+  const supabase = getSupabase();
+
+  // Fetch all organizations
+  const { data: orgs, error: orgsError } = await supabase
+    .from("organizations")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (orgsError) {
+    console.error("Error fetching organizations:", orgsError);
+    return [];
+  }
+
+  // Fetch all repos with organization_id
+  const { data: repos, error: reposError } = await supabase
+    .from("repos")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (reposError) {
+    console.error("Error fetching repos:", reposError);
+    return [];
+  }
+
+  // Fetch all versions
+  const { data: versions, error: versionsError } = await supabase
+    .from("repo_versions")
+    .select("*")
+    .order("ingested_at", { ascending: false });
+
+  if (versionsError) {
+    console.error("Error fetching versions:", versionsError);
+    return [];
+  }
+
+  // Group versions by repo
+  const versionsByRepo = new Map<string, RepoVersionRow[]>();
+  for (const version of versions || []) {
+    const existing = versionsByRepo.get(version.repo_id) || [];
+    existing.push(version);
+    versionsByRepo.set(version.repo_id, existing);
+  }
+
+  // Group repos by organization
+  const reposByOrg = new Map<string, RepoWithVersions[]>();
+  const unassignedRepos: RepoWithVersions[] = [];
+
+  for (const repo of repos || []) {
+    const repoWithVersions: RepoWithVersions = {
+      repo,
+      versions: versionsByRepo.get(repo.id) || [],
+    };
+
+    const orgId = (repo as any).organization_id;
+    if (orgId) {
+      const existing = reposByOrg.get(orgId) || [];
+      existing.push(repoWithVersions);
+      reposByOrg.set(orgId, existing);
+    } else {
+      unassignedRepos.push(repoWithVersions);
+    }
+  }
+
+  // Build organization list
+  const result: OrganizationWithRepos[] = [];
+
+  // Add organizations with their repos
+  for (const org of (orgs as OrganizationRow[]) || []) {
+    result.push({
+      organization: org,
+      repos: reposByOrg.get(org.id) || [],
+    });
+  }
+
+  // Add "unassigned" organization for repos without an org
+  if (unassignedRepos.length > 0) {
+    result.push({
+      organization: {
+        id: "unassigned",
+        name: "Unassigned Repositories",
+        slug: "unassigned",
+        avatar_url: null,
+        github_id: null,
+        description: "Repositories not assigned to any organization",
+        created_at: null,
+        updated_at: null,
+      },
+      repos: unassignedRepos,
+    });
+  }
+
+  // Sort by total version count (most active first)
+  result.sort((a, b) => {
+    const aVersions = a.repos.reduce((sum, r) => sum + r.versions.length, 0);
+    const bVersions = b.repos.reduce((sum, r) => sum + r.versions.length, 0);
+    return bVersions - aVersions;
+  });
+
+  return result;
+}
+
+// Create or get an organization
+export async function getOrCreateOrganization(
+  name: string,
+  slug?: string,
+  avatarUrl?: string,
+  githubId?: string
+): Promise<OrganizationRow | null> {
+  const supabase = getSupabase();
+  const orgSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  // Try to find existing org by slug or github_id
+  let query = supabase.from("organizations").select("*").eq("slug", orgSlug);
+  
+  const { data: existing, error: findError } = await query.maybeSingle();
+
+  if (findError) {
+    console.error("Error finding organization:", findError);
+    return null;
+  }
+
+  if (existing) {
+    return existing as OrganizationRow;
+  }
+
+  // Create new org
+  const { data: newOrg, error: createError } = await supabase
+    .from("organizations")
+    .insert({
+      name,
+      slug: orgSlug,
+      avatar_url: avatarUrl || null,
+      github_id: githubId || null,
+    })
+    .select()
+    .single();
+
+  if (createError) {
+    console.error("Error creating organization:", createError);
+    return null;
+  }
+
+  return newOrg as OrganizationRow;
+}
+
+// Link a repo to an organization
+export async function linkRepoToOrganization(
+  repoId: string,
+  organizationId: string
+): Promise<boolean> {
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from("repos")
+    .update({ organization_id: organizationId })
+    .eq("id", repoId);
+
+  if (error) {
+    console.error("Error linking repo to organization:", error);
+    return false;
+  }
+
+  return true;
 }
 
 // Fetch repo version with repo details
