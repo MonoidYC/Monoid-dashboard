@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -54,12 +54,15 @@ export default function DocsListPage() {
   const [showMcpInfo, setShowMcpInfo] = useState(false);
   const [copied, setCopied] = useState(false);
   
-  // Get MCP endpoint URL
-  const mcpEndpoint = typeof window !== "undefined" 
-    ? `${window.location.origin}/api/mcp`
-    : "/api/mcp";
+  // Get MCP endpoint URL (org-specific)
+  const mcpEndpoint = useMemo(() => {
+    if (!organization?.slug) return "";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/api/mcp/${organization.slug}`;
+  }, [organization?.slug]);
   
   const handleCopyMcp = useCallback(() => {
+    if (!mcpEndpoint) return;
     navigator.clipboard.writeText(mcpEndpoint);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -277,11 +280,9 @@ export default function DocsListPage() {
                   <code className="text-emerald-400/80">list_docs</code>,{" "}
                   <code className="text-emerald-400/80">get_doc</code>,{" "}
                   <code className="text-emerald-400/80">search_docs</code>
-                  {organization?.slug && (
-                    <span className="ml-2">
-                      • Use org_slug: <code className="text-emerald-400/80">&quot;{organization.slug}&quot;</code>
-                    </span>
-                  )}
+                  <span className="ml-2 text-gray-600">
+                    (no org_slug needed - it&apos;s in the URL)
+                  </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-white/5 text-xs text-gray-500">
                   <strong className="text-gray-400">Test with MCP Inspector:</strong>{" "}
