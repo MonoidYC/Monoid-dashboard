@@ -2,64 +2,54 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { GitBranch, Network, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2, Map as MapIcon, Building2, CheckCircle2, XCircle, Clock, FileText, LogOut, Github } from "lucide-react";
-import { getRepoVersions, type VersionTestStats } from "@/lib/graph/queries";
-import type { RepoVersionRow, RepoRow, OrganizationRow } from "@/lib/graph/types";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
-
-interface VersionWithTestStats {
-  version: RepoVersionRow;
-  testStats: VersionTestStats;
-}
-
-interface RepoGroup {
-  repo: RepoRow;
-  organization: OrganizationRow | null;
-  versions: VersionWithTestStats[];
-}
+import { 
+  GitBranch, 
+  Network, 
+  Zap, 
+  FlaskConical, 
+  Loader2, 
+  Calendar, 
+  Hash, 
+  Box, 
+  ChevronDown, 
+  ChevronRight, 
+  FolderGit2,
+  Building2,
+  Globe
+} from "lucide-react";
+import { getOrganizationsWithRepos } from "@/lib/graph/queries";
+import type { OrganizationWithRepos, RepoWithVersions, RepoVersionRow } from "@/lib/graph/types";
 
 export default function Home() {
-  const [repoGroups, setRepoGroups] = useState<RepoGroup[]>([]);
+  const [orgData, setOrgData] = useState<OrganizationWithRepos[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set());
-  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
-        // Get user info
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-
-        // Load repo versions
-        const data = await getRepoVersions();
+        const data = await getOrganizationsWithRepos();
+        setOrgData(data);
         
-        // Group versions by repo
-        const groupMap = new Map<string, RepoGroup>();
+        // Auto-expand orgs and repos with versions
+        const orgsToExpand = new Set<string>();
+        const reposToExpand = new Set<string>();
         
-        for (const { version, repo, organization, testStats } of data) {
-          const existing = groupMap.get(repo.id);
-          if (existing) {
-            existing.versions.push({ version, testStats });
-          } else {
-            groupMap.set(repo.id, { repo, organization, versions: [{ version, testStats }] });
+        for (const org of data) {
+          if (org.repos.length > 0) {
+            orgsToExpand.add(org.organization.id);
+            for (const repo of org.repos) {
+              if (repo.versions.length > 0) {
+                reposToExpand.add(repo.repo.id);
+              }
+            }
           }
         }
         
-        // Convert to array and sort by most recent version
-        const groups = Array.from(groupMap.values()).sort((a, b) => {
-          const aLatest = a.versions[0]?.version.ingested_at || "";
-          const bLatest = b.versions[0]?.version.ingested_at || "";
-          return bLatest.localeCompare(aLatest);
-        });
-        
-        setRepoGroups(groups);
-        
-        // Auto-expand repos with versions
-        setExpandedRepos(new Set(groups.map(g => g.repo.id)));
+        setExpandedOrgs(orgsToExpand);
+        setExpandedRepos(reposToExpand);
       } catch (error) {
         console.error("Failed to load data:", error);
       } finally {
@@ -69,9 +59,22 @@ export default function Home() {
     loadData();
   }, []);
 
+  // Toggle organization expansion
+  const toggleOrg = (orgId: string) => {
+    setExpandedOrgs((prev: Set<string>) => {
+      const next = new Set(prev);
+      if (next.has(orgId)) {
+        next.delete(orgId);
+      } else {
+        next.add(orgId);
+      }
+      return next;
+    });
+  };
+
   // Toggle repo expansion
   const toggleRepo = (repoId: string) => {
-    setExpandedRepos(prev => {
+    setExpandedRepos((prev: Set<string>) => {
       const next = new Set(prev);
       if (next.has(repoId)) {
         next.delete(repoId);
@@ -111,139 +114,134 @@ export default function Home() {
     return formatDate(dateStr);
   };
 
-  // Get user display info
-  const userAvatarUrl = user?.user_metadata?.avatar_url;
-  const userName = user?.user_metadata?.user_name || user?.email || "User";
+  // Get total stats for an org
+  const getOrgStats = (org: OrganizationWithRepos) => {
+    const totalRepos = org.repos.length;
+    const totalVersions = org.repos.reduce((sum, r) => sum + r.versions.length, 0);
+    const latestVersion = org.repos
+      .flatMap(r => r.versions)
+      .sort((a, b) => (b.ingested_at || "").localeCompare(a.ingested_at || ""))[0];
+    return { totalRepos, totalVersions, latestVersion };
+  };
 
   return (
-    <main className="min-h-screen flex flex-col bg-[#08080a]">
-      {/* Header */}
-      <header className="border-b border-white/[0.06] px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center">
-            <span className="text-xl font-semibold tracking-tight text-white">
-              Monoid
-            </span>
+    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#08080a]">
+      <div className="max-w-4xl mx-auto text-center">
+        {/* Logo */}
+        <div className="mb-10 flex items-center justify-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-white/[0.08] flex items-center justify-center">
+            <Network className="w-8 h-8 text-white/90" />
+          </div>
+          <h1 className="text-5xl font-semibold tracking-tight text-white">
+            Monoid
+          </h1>
+        </div>
+
+        {/* Tagline */}
+        <p className="text-xl text-gray-400 mb-14 max-w-xl mx-auto font-light leading-relaxed tracking-tight">
+          Visualize your codebase as an interactive dependency graph.
+          Understand impact and explore your architecture.
+        </p>
+
+        {/* Feature cards */}
+        <div className="grid md:grid-cols-4 gap-5 mb-14">
+          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div className="w-11 h-11 rounded-xl bg-blue-500/10 flex items-center justify-center mb-5 mx-auto">
+              <GitBranch className="w-5 h-5 text-blue-400" />
+            </div>
+            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">AST-Derived Nodes</h3>
+            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+              Functions, classes, endpoints, and more — parsed directly from your code.
+            </p>
           </div>
 
-          {/* User info + Sign out */}
-          <div className="flex items-center gap-4">
-            {user && (
-              <>
-                <div className="flex items-center gap-3">
-                  {userAvatarUrl ? (
-                    <img
-                      src={userAvatarUrl}
-                      alt={userName}
-                      className="w-8 h-8 rounded-full"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 text-sm font-medium">
-                      {userName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="text-sm text-white/70">{userName}</span>
-                </div>
-                <a
-                  href="/auth/signout"
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/[0.05] transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign out
-                </a>
-              </>
-            )}
+          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-5 mx-auto">
+              <Network className="w-5 h-5 text-emerald-400" />
+            </div>
+            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Dependency Graph</h3>
+            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+              See how your code connects — imports, calls, routes, and more.
+            </p>
+          </div>
+
+          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div className="w-11 h-11 rounded-xl bg-lime-500/10 flex items-center justify-center mb-5 mx-auto">
+              <FlaskConical className="w-5 h-5 text-lime-400" />
+            </div>
+            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Test Visualization</h3>
+            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+              E2E, unit, security tests — see what&apos;s covered and what&apos;s failing.
+            </p>
+          </div>
+
+          <div className="p-7 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/10 flex items-center justify-center mb-5 mx-auto">
+              <Zap className="w-5 h-5 text-amber-400" />
+            </div>
+            <h3 className="font-medium text-[17px] mb-2 text-white/90 tracking-tight">Blast Radius</h3>
+            <p className="text-[15px] text-gray-500 leading-relaxed font-light">
+              Understand the impact of changes before you make them.
+            </p>
           </div>
         </div>
-      </header>
 
-      {/* Main content */}
-      <div className="flex-1 p-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Available Repos Section */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-            </div>
-          ) : repoGroups.length > 0 ? (
-            <div>
-              <h2 className="text-lg font-medium text-white/80 mb-6 tracking-tight">
-                Your Repositories
-              </h2>
-              <div className="space-y-3">
-                {repoGroups.map(({ repo, organization, versions }) => (
+        {/* Organizations Section */}
+        {isLoading ? (
+          <div className="mb-14">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400 mx-auto" />
+          </div>
+        ) : orgData.length > 0 ? (
+          <div className="mb-14 text-left">
+            <h2 className="text-lg font-medium text-white/80 mb-6 tracking-tight text-center">
+              Organizations & Repositories
+            </h2>
+            <div className="space-y-4">
+              {orgData.map(({ organization, repos }: OrganizationWithRepos) => {
+                const { totalRepos, totalVersions, latestVersion } = getOrgStats({ organization, repos });
+                const isExpanded = expandedOrgs.has(organization.id);
+                
+                return (
                   <div
-                    key={repo.id}
+                    key={organization.id}
                     className="rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden"
                   >
-                    {/* Repo Header - Clickable to expand/collapse */}
+                    {/* Organization Header */}
                     <button
-                      onClick={() => toggleRepo(repo.id)}
+                      onClick={() => toggleOrg(organization.id)}
                       className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        {/* Organization Avatar or Default Icon */}
-                        {organization?.avatar_url ? (
-                          <img
-                            src={organization.avatar_url}
-                            alt={organization.name}
-                            className="w-10 h-10 rounded-xl"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-                            <FolderGit2 className="w-5 h-5 text-white/60" />
-                          </div>
-                        )}
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center overflow-hidden">
+                          {organization.avatar_url ? (
+                            <img 
+                              src={organization.avatar_url} 
+                              alt={organization.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Building2 className="w-6 h-6 text-white/60" />
+                          )}
+                        </div>
                         <div className="text-left">
-                          <div className="flex items-center gap-2">
-                            {/* Organization Badge */}
-                            {organization && (
-                              <a
-                                href={`https://github.com/${organization.slug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 text-xs font-medium hover:bg-violet-500/20 transition-colors"
-                              >
-                                <Building2 className="w-3 h-3" />
-                                {organization.name}
-                              </a>
-                            )}
-                            <span className="font-medium text-white/90">
-                              {repo.owner}/{repo.name}
-                            </span>
+                          <div className="font-medium text-white/90 text-lg">
+                            {organization.name}
                           </div>
-                          <div className="text-sm text-gray-500 mt-0.5">
-                            {versions.length} {versions.length === 1 ? "commit" : "commits"}
-                            {versions[0]?.version.ingested_at && (
-                              <span className="text-gray-600"> · Last updated {formatRelativeTime(versions[0].version.ingested_at)}</span>
+                          <div className="text-sm text-gray-500 mt-0.5 flex items-center gap-3">
+                            <span>{totalRepos} {totalRepos === 1 ? "repo" : "repos"}</span>
+                            <span className="text-gray-600">·</span>
+                            <span>{totalVersions} {totalVersions === 1 ? "commit" : "commits"}</span>
+                            {latestVersion?.ingested_at && (
+                              <>
+                                <span className="text-gray-600">·</span>
+                                <span className="text-gray-600">Updated {formatRelativeTime(latestVersion.ingested_at)}</span>
+                              </>
                             )}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        {/* Docs Link - Only show if organization exists */}
-                        {organization && (
-                          <Link
-                            href={`/docs/${organization.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/15 text-cyan-400 text-xs font-medium hover:bg-cyan-500/25 transition-colors"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            Docs
-                          </Link>
-                        )}
-                        {/* Roadmap Link */}
-                        <Link
-                          href={`/roadmap/${repo.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 text-xs font-medium hover:bg-violet-500/20 transition-colors"
-                        >
-                          <MapIcon className="w-3.5 h-3.5" />
-                          Roadmap
-                        </Link>
-                        {expandedRepos.has(repo.id) ? (
+                        {isExpanded ? (
                           <ChevronDown className="w-5 h-5 text-gray-500" />
                         ) : (
                           <ChevronRight className="w-5 h-5 text-gray-500" />
@@ -251,122 +249,151 @@ export default function Home() {
                       </div>
                     </button>
 
-                    {/* Versions List - Expanded */}
-                    {expandedRepos.has(repo.id) && (
+                    {/* Repos List */}
+                    {isExpanded && repos.length > 0 && (
                       <div className="border-t border-white/[0.04]">
-                        {versions.map(({ version, testStats }, index) => (
-                          <div
-                            key={version.id}
-                            className={`p-4 pl-[4.5rem] ${
-                              index !== versions.length - 1 ? "border-b border-white/[0.03]" : ""
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/15 to-blue-500/15 flex items-center justify-center">
-                                  <Hash className="w-4 h-4 text-white/50" />
-                                </div>
-                                <div className="text-left">
-                                  <div className="font-mono text-sm text-white/80">
-                                    {version.commit_sha.slice(0, 7)}
+                        {repos.map((repoData: RepoWithVersions, repoIndex: number) => {
+                          const { repo, versions } = repoData;
+                          const isRepoExpanded = expandedRepos.has(repo.id);
+                          
+                          return (
+                            <div key={repo.id}>
+                              {/* Repo Header */}
+                              <button
+                                onClick={() => toggleRepo(repo.id)}
+                                className={`w-full p-4 pl-8 flex items-center justify-between hover:bg-white/[0.02] transition-colors ${
+                                  repoIndex !== repos.length - 1 && !isRepoExpanded ? "border-b border-white/[0.03]" : ""
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500/15 to-cyan-500/15 flex items-center justify-center">
+                                    <FolderGit2 className="w-4 h-4 text-white/50" />
                                   </div>
-                                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                                    {version.branch && (
-                                      <span className="flex items-center gap-1">
-                                        <GitBranch className="w-3 h-3" />
-                                        {version.branch}
-                                      </span>
-                                    )}
-                                    <span className="flex items-center gap-1">
-                                      <Calendar className="w-3 h-3" />
-                                      {formatDate(version.ingested_at)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                {/* Stats */}
-                                <div className="flex items-center gap-3 text-xs text-gray-500">
-                                  <span className="flex items-center gap-1">
-                                    <Box className="w-3.5 h-3.5" />
-                                    {version.node_count ?? 0} nodes
-                                  </span>
-                                  {testStats.testCount > 0 && (
-                                    <span className={`flex items-center gap-1 ${
-                                      testStats.failedCount > 0
-                                        ? "text-red-400"
-                                        : testStats.passedCount === testStats.testCount
-                                        ? "text-emerald-400"
-                                        : "text-gray-400"
-                                    }`}>
-                                      {testStats.failedCount > 0 ? (
-                                        <XCircle className="w-3.5 h-3.5" />
-                                      ) : testStats.passedCount === testStats.testCount ? (
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                      ) : (
-                                        <Clock className="w-3.5 h-3.5" />
+                                  <div className="text-left">
+                                    <div className="font-medium text-white/80">
+                                      {repo.owner}/{repo.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                      {versions.length} {versions.length === 1 ? "commit" : "commits"}
+                                      {versions[0]?.ingested_at && (
+                                        <span className="text-gray-600"> · {formatRelativeTime(versions[0].ingested_at)}</span>
                                       )}
-                                      {testStats.testCount} tests
-                                    </span>
-                                  )}
+                                    </div>
+                                  </div>
                                 </div>
-                                {/* Action Links */}
                                 <div className="flex items-center gap-2">
-                                  <Link
-                                    href={`/graph/${version.id}`}
-                                    className="px-3 py-1.5 rounded-lg bg-white/[0.05] text-white/70 text-xs font-medium hover:bg-white/[0.1] transition-colors flex items-center gap-1.5"
-                                  >
-                                    <Network className="w-3.5 h-3.5" />
-                                    Graph
-                                  </Link>
-                                  {testStats.testCount > 0 && (
+                                  {versions.length > 0 && (
                                     <Link
-                                      href={`/tests/${version.id}`}
-                                      className="px-3 py-1.5 rounded-lg bg-lime-500/10 text-lime-400 text-xs font-medium hover:bg-lime-500/20 transition-colors flex items-center gap-1.5"
+                                      href={`/graph/${versions[0].id}`}
+                                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                      className="px-3 py-1.5 rounded-full bg-white/[0.05] text-white/70 text-xs font-medium hover:bg-white/[0.1] transition-colors"
                                     >
-                                      <FlaskConical className="w-3.5 h-3.5" />
-                                      Tests
+                                      Latest →
                                     </Link>
                                   )}
+                                  {isRepoExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                  )}
                                 </div>
-                              </div>
+                              </button>
+
+                              {/* Versions List */}
+                              {isRepoExpanded && versions.length > 0 && (
+                                <div className="border-t border-white/[0.03] bg-white/[0.01]">
+                                  {versions.map((version: RepoVersionRow, versionIndex: number) => (
+                                    <Link
+                                      key={version.id}
+                                      href={`/graph/${version.id}`}
+                                      className={`block p-3 pl-16 hover:bg-white/[0.03] transition-colors group ${
+                                        versionIndex !== versions.length - 1 ? "border-b border-white/[0.02]" : ""
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-7 h-7 rounded-md bg-gradient-to-br from-emerald-500/10 to-blue-500/10 flex items-center justify-center">
+                                            <Hash className="w-3.5 h-3.5 text-white/40" />
+                                          </div>
+                                          <div className="text-left">
+                                            <div className="font-mono text-sm text-white/70 group-hover:text-white transition-colors">
+                                              {version.commit_sha.slice(0, 7)}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                              {version.branch && (
+                                                <span className="flex items-center gap-1">
+                                                  <GitBranch className="w-3 h-3" />
+                                                  {version.branch}
+                                                </span>
+                                              )}
+                                              <span className="flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                {formatDate(version.ingested_at)}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                                          <span className="flex items-center gap-1">
+                                            <Box className="w-3 h-3" />
+                                            {version.node_count ?? 0} nodes
+                                          </span>
+                                          <span className="px-2 py-1 rounded-full bg-white/[0.04] text-white/60 text-xs group-hover:bg-white/[0.08] transition-colors">
+                                            View →
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </Link>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Border after repo if not last and repo is expanded */}
+                              {isRepoExpanded && repoIndex !== repos.length - 1 && (
+                                <div className="border-b border-white/[0.04]" />
+                              )}
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Empty repos state */}
+                    {isExpanded && repos.length === 0 && (
+                      <div className="border-t border-white/[0.04] p-6 text-center">
+                        <p className="text-sm text-gray-500">No repositories in this organization yet.</p>
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-white/[0.04] flex items-center justify-center mb-6">
-                <FolderGit2 className="w-8 h-8 text-white/30" />
-              </div>
-              <h2 className="text-xl font-medium text-white/80 mb-2">No repositories yet</h2>
-              <p className="text-gray-500 max-w-md">
-                Connect your GitHub repositories to get started with code graph visualization.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
+        ) : null}
 
-      {/* Footer */}
-      <footer className="border-t border-white/[0.06] px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-center">
-          <a
-            href="https://github.com/MonoidYC"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-400 transition-colors"
+        {/* CTAs */}
+        <div className="flex items-center justify-center gap-4 flex-wrap">
+          <Link
+            href="/graph/demo"
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-white/10 text-white/80 border border-white/10 font-medium text-[15px] hover:bg-white/15 transition-all tracking-tight"
           >
-            <Github className="w-4 h-4" />
-            Monoid 2026
-          </a>
+            <Network className="w-[18px] h-[18px]" />
+            View Demo Graph
+          </Link>
+          
+          <Link
+            href="/tests/demo"
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-lime-500/10 text-lime-400 border border-lime-500/20 font-medium text-[15px] hover:bg-lime-500/20 transition-all tracking-tight"
+          >
+            <FlaskConical className="w-[18px] h-[18px]" />
+            View Test Graph
+          </Link>
         </div>
-      </footer>
+
+        <p className="mt-5 text-sm text-gray-600 font-light">
+          No login required
+        </p>
+      </div>
     </main>
   );
 }

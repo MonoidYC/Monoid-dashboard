@@ -1,29 +1,72 @@
 "use client";
 
-import { useState } from "react";
-import { Github, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Github, Loader2, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+// Check if we're in a VS Code webview
+function isVSCodeWebview(): boolean {
+  if (typeof window === 'undefined') return false;
+  const isInIframe = window.self !== window.top;
+  const isVSCodeProtocol = window.location.protocol === 'vscode-webview:';
+  const isVSCodeUserAgent = navigator.userAgent.includes('VSCode') || navigator.userAgent.includes('Electron');
+  return isInIframe || isVSCodeProtocol || isVSCodeUserAgent || (window as any).__isVSCodeWebview === true;
+}
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isWebview, setIsWebview] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsWebview(isVSCodeWebview());
+  }, []);
 
   const handleGitHubLogin = async () => {
     setIsLoading(true);
     setError(null);
+    setAuthMessage(null);
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+      
+      // Check if we're in a VS Code webview
+      if (isVSCodeWebview()) {
+        // In webview - get OAuth URL and open in external browser
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "github",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+            skipBrowserRedirect: true, // Don't redirect, we'll handle it
+          },
+        });
 
-      if (error) {
-        setError(error.message);
-        setIsLoading(false);
+        if (error) {
+          setError(error.message);
+          setIsLoading(false);
+          return;
+        }
+
+        if (data.url) {
+          // Send message to parent webview to open in external browser
+          window.parent.postMessage({ type: 'openAuthUrl', url: data.url }, '*');
+          setAuthMessage('Opening GitHub in your browser. After signing in, click "Reload" in the toolbar.');
+          setIsLoading(false);
+        }
+      } else {
+        // Normal browser - standard OAuth flow
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "github",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+
+        if (error) {
+          setError(error.message);
+          setIsLoading(false);
+        }
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -58,9 +101,16 @@ export default function LoginPage() {
               </div>
             )}
 
+            {authMessage && (
+              <div className="mb-6 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm text-center flex items-center gap-2 justify-center">
+                <ExternalLink className="w-4 h-4" />
+                {authMessage}
+              </div>
+            )}
+
             <button
               onClick={handleGitHubLogin}
-              disabled={isLoading}
+              disabled={isLoading || !!authMessage}
               className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl bg-white text-black font-medium text-[15px] hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
@@ -68,8 +118,14 @@ export default function LoginPage() {
               ) : (
                 <Github className="w-5 h-5" />
               )}
-              {isLoading ? "Signing in..." : "Sign in with GitHub"}
+              {isLoading ? "Signing in..." : authMessage ? "Waiting for browser..." : "Sign in with GitHub"}
             </button>
+
+            {isWebview && (
+              <p className="mt-4 text-xs text-gray-500 text-center">
+                Running in VS Code webview. Authentication will open in your browser.
+              </p>
+            )}
           </div>
         </div>
       </div>
