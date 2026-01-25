@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box } from "lucide-react";
+import { GitBranch, Network, Zap, FlaskConical, Loader2, Calendar, Hash, Box, ChevronDown, ChevronRight, FolderGit2 } from "lucide-react";
 import { getRepoVersions } from "@/lib/graph/queries";
 import type { RepoVersionRow, RepoRow } from "@/lib/graph/types";
 
@@ -11,16 +11,45 @@ interface VersionWithRepo {
   repo: RepoRow;
 }
 
+interface RepoGroup {
+  repo: RepoRow;
+  versions: RepoVersionRow[];
+}
+
 export default function Home() {
-  const [versions, setVersions] = useState<VersionWithRepo[]>([]);
+  const [repoGroups, setRepoGroups] = useState<RepoGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function loadVersions() {
       setIsLoading(true);
       try {
         const data = await getRepoVersions();
-        setVersions(data);
+        
+        // Group versions by repo
+        const groupMap = new Map<string, RepoGroup>();
+        
+        for (const { version, repo } of data) {
+          const existing = groupMap.get(repo.id);
+          if (existing) {
+            existing.versions.push(version);
+          } else {
+            groupMap.set(repo.id, { repo, versions: [version] });
+          }
+        }
+        
+        // Convert to array and sort by most recent version
+        const groups = Array.from(groupMap.values()).sort((a, b) => {
+          const aLatest = a.versions[0]?.ingested_at || "";
+          const bLatest = b.versions[0]?.ingested_at || "";
+          return bLatest.localeCompare(aLatest);
+        });
+        
+        setRepoGroups(groups);
+        
+        // Auto-expand repos with versions
+        setExpandedRepos(new Set(groups.map(g => g.repo.id)));
       } catch (error) {
         console.error("Failed to load versions:", error);
       } finally {
@@ -29,6 +58,19 @@ export default function Home() {
     }
     loadVersions();
   }, []);
+
+  // Toggle repo expansion
+  const toggleRepo = (repoId: string) => {
+    setExpandedRepos(prev => {
+      const next = new Set(prev);
+      if (next.has(repoId)) {
+        next.delete(repoId);
+      } else {
+        next.add(repoId);
+      }
+      return next;
+    });
+  };
 
   // Format date
   const formatDate = (dateStr: string | null) => {
@@ -41,6 +83,22 @@ export default function Home() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  // Format relative time
+  const formatRelativeTime = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return formatDate(dateStr);
   };
 
   return (
@@ -105,61 +163,101 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Available Repos Section */}
+        {/* Available Repos Section - Grouped by Repository */}
         {isLoading ? (
           <div className="mb-14">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400 mx-auto" />
           </div>
-        ) : versions.length > 0 ? (
+        ) : repoGroups.length > 0 ? (
           <div className="mb-14">
             <h2 className="text-lg font-medium text-white/80 mb-6 tracking-tight">
               Available Repositories
             </h2>
             <div className="space-y-3">
-              {versions.map(({ version, repo }) => (
-                <Link
-                  key={version.id}
-                  href={`/graph/${version.id}`}
-                  className="block p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all group"
+              {repoGroups.map(({ repo, versions }) => (
+                <div
+                  key={repo.id}
+                  className="rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden"
                 >
-                  <div className="flex items-center justify-between">
+                  {/* Repo Header - Clickable to expand/collapse */}
+                  <button
+                    onClick={() => toggleRepo(repo.id)}
+                    className="w-full p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                  >
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 flex items-center justify-center">
-                        <Network className="w-5 h-5 text-white/60" />
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                        <FolderGit2 className="w-5 h-5 text-white/60" />
                       </div>
                       <div className="text-left">
-                        <div className="font-medium text-white/90 group-hover:text-white transition-colors">
+                        <div className="font-medium text-white/90">
                           {repo.owner}/{repo.name}
                         </div>
-                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <Hash className="w-3 h-3" />
-                            {version.commit_sha.slice(0, 7)}
-                          </span>
-                          {version.branch && (
-                            <span className="flex items-center gap-1">
-                              <GitBranch className="w-3 h-3" />
-                              {version.branch}
-                            </span>
+                        <div className="text-sm text-gray-500 mt-0.5">
+                          {versions.length} {versions.length === 1 ? "commit" : "commits"}
+                          {versions[0]?.ingested_at && (
+                            <span className="text-gray-600"> · Last updated {formatRelativeTime(versions[0].ingested_at)}</span>
                           )}
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {formatDate(version.ingested_at)}
-                          </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Box className="w-3.5 h-3.5" />
-                        {version.node_count ?? 0} nodes
-                      </span>
-                      <span className="px-3 py-1.5 rounded-full bg-white/[0.05] text-white/70 text-xs font-medium group-hover:bg-white/[0.1] transition-colors">
-                        View Graph →
-                      </span>
+                    <div className="flex items-center gap-3">
+                      {expandedRepos.has(repo.id) ? (
+                        <ChevronDown className="w-5 h-5 text-gray-500" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-500" />
+                      )}
                     </div>
-                  </div>
-                </Link>
+                  </button>
+
+                  {/* Versions List - Expanded */}
+                  {expandedRepos.has(repo.id) && (
+                    <div className="border-t border-white/[0.04]">
+                      {versions.map((version, index) => (
+                        <Link
+                          key={version.id}
+                          href={`/graph/${version.id}`}
+                          className={`block p-4 pl-[4.5rem] hover:bg-white/[0.03] transition-colors group ${
+                            index !== versions.length - 1 ? "border-b border-white/[0.03]" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/15 to-blue-500/15 flex items-center justify-center">
+                                <Hash className="w-4 h-4 text-white/50" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-mono text-sm text-white/80 group-hover:text-white transition-colors">
+                                  {version.commit_sha.slice(0, 7)}
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                                  {version.branch && (
+                                    <span className="flex items-center gap-1">
+                                      <GitBranch className="w-3 h-3" />
+                                      {version.branch}
+                                    </span>
+                                  )}
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {formatDate(version.ingested_at)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Box className="w-3.5 h-3.5" />
+                                {version.node_count ?? 0} nodes
+                              </span>
+                              <span className="px-3 py-1.5 rounded-full bg-white/[0.05] text-white/70 text-xs font-medium group-hover:bg-white/[0.1] transition-colors">
+                                View →
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
