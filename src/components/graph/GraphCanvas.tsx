@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, createContext, useContext } from "react";
 import {
   ReactFlow,
   Background,
@@ -31,6 +31,21 @@ import { useGraphFilters } from "./hooks/useGraphFilters";
 import type { GraphNode, GraphEdge, CodeNodeData, RepoRow, RepoVersionRow, NodeType } from "@/lib/graph/types";
 import { NODE_TYPE_COLORS, detectCluster } from "@/lib/graph/types";
 import { saveEdges, saveNodes } from "@/lib/graph/mutations";
+
+// Context for connect mode - allows nodes to trigger connection
+interface ConnectModeContextType {
+  connectingFromNodeId: string | null;
+  startConnecting: (nodeId: string) => void;
+  cancelConnecting: () => void;
+}
+
+export const ConnectModeContext = createContext<ConnectModeContextType>({
+  connectingFromNodeId: null,
+  startConnecting: () => {},
+  cancelConnecting: () => {},
+});
+
+export const useConnectMode = () => useContext(ConnectModeContext);
 
 // Custom node types - cast to any to avoid React Flow strict typing issues
 const nodeTypes = {
@@ -73,6 +88,19 @@ function GraphCanvasInner({
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [hasZoomedToHighlight, setHasZoomedToHighlight] = useState(false);
   
+  // Connect mode state - for click-to-connect functionality
+  const [connectingFromNodeId, setConnectingFromNodeId] = useState<string | null>(null);
+  
+  // Start connecting from a node (triggered by connect button on node)
+  const startConnecting = useCallback((nodeId: string) => {
+    setConnectingFromNodeId(nodeId);
+  }, []);
+  
+  // Cancel connecting mode
+  const cancelConnecting = useCallback(() => {
+    setConnectingFromNodeId(null);
+  }, []);
+  
   // Auto-select and zoom to highlighted node from URL param
   useEffect(() => {
     if (highlightNodeId && initialNodes.length > 0 && !hasZoomedToHighlight) {
@@ -96,6 +124,18 @@ function GraphCanvasInner({
       }
     }
   }, [highlightNodeId, initialNodes, hasZoomedToHighlight, setCenter, getNodes]);
+  
+  // Handle Escape key to cancel connecting mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && connectingFromNodeId) {
+        cancelConnecting();
+      }
+    };
+    
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [connectingFromNodeId, cancelConnecting]);
   
   // Modal state
   const [isNewNodeModalOpen, setIsNewNodeModalOpen] = useState(false);
@@ -136,7 +176,7 @@ function GraphCanvasInner({
     { enabled: true, animateOnChange: false }
   );
 
-  // Apply highlighting and selection state to nodes
+  // Apply highlighting, selection, and connecting state to nodes
   const nodesWithState = useMemo(() => {
     return layoutNodes.map((node) => ({
       ...node,
@@ -145,9 +185,12 @@ function GraphCanvasInner({
         isHighlighted: highlightedNodeIds.has(node.id),
         isSelected: selectedNode?.id === node.id,
         isFaded: highlightedNodeIds.size > 0 && !highlightedNodeIds.has(node.id),
+        // Connect mode states
+        isConnectingSource: connectingFromNodeId === node.id,
+        isConnectTarget: connectingFromNodeId !== null && connectingFromNodeId !== node.id,
       },
     }));
-  }, [layoutNodes, highlightedNodeIds, selectedNode]);
+  }, [layoutNodes, highlightedNodeIds, selectedNode, connectingFromNodeId]);
 
   // Combine initial edges with pending edges for display
   const allEdges = useMemo(() => {
@@ -221,18 +264,41 @@ function GraphCanvasInner({
     [initialEdges, pendingEdges]
   );
 
-  // Handle node click
+  // Handle node click - either create connection or select node
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
+      // If in connecting mode, create the edge
+      if (connectingFromNodeId && connectingFromNodeId !== node.id) {
+        // Check if edge already exists
+        const exists = [...initialEdges, ...pendingEdges].some(
+          (e) => e.source === connectingFromNodeId && e.target === node.id
+        );
+        
+        if (!exists) {
+          setPendingEdges((prev) => [
+            ...prev,
+            { source: connectingFromNodeId, target: node.id },
+          ]);
+        }
+        
+        // Exit connecting mode
+        cancelConnecting();
+        return;
+      }
+      
+      // Otherwise, just select the node
       setSelectedNode(node as GraphNode);
     },
-    []
+    [connectingFromNodeId, initialEdges, pendingEdges, cancelConnecting]
   );
 
-  // Handle pane click (deselect)
+  // Handle pane click (deselect and cancel connecting mode)
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
-  }, []);
+    if (connectingFromNodeId) {
+      cancelConnecting();
+    }
+  }, [connectingFromNodeId, cancelConnecting]);
 
   // Handle new node creation
   const handleCreateNode = useCallback((data: {
@@ -343,20 +409,44 @@ function GraphCanvasInner({
 
   const hasUnsavedChanges = pendingEdges.length > 0 || pendingNodes.length > 0;
 
+  // Context value for connect mode
+  const connectModeContextValue = useMemo(() => ({
+    connectingFromNodeId,
+    startConnecting,
+    cancelConnecting,
+  }), [connectingFromNodeId, startConnecting, cancelConnecting]);
+
   return (
-    <div className="relative w-full h-full bg-[#08080a]">
-      {/* Controls Panel */}
-      <ControlsPanel
-        filters={filters}
-        onSearchChange={setSearchQuery}
-        onToggleNodeType={toggleNodeType}
-        onToggleCluster={toggleCluster}
-        onReset={resetFilters}
-        onRestartLayout={restartSimulation}
-        isSimulating={isSimulating}
-        nodeCount={filteredNodes.length}
-        edgeCount={filteredEdges.length}
-      />
+    <ConnectModeContext.Provider value={connectModeContextValue}>
+      <div className="relative w-full h-full bg-[#08080a]">
+        {/* Connect Mode Banner */}
+        {connectingFromNodeId && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-blue-500/90 text-white rounded-lg shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            <span className="text-sm font-medium">
+              Click on a target node to create connection
+            </span>
+            <button
+              onClick={cancelConnecting}
+              className="ml-2 px-2 py-0.5 text-xs bg-white/20 hover:bg-white/30 rounded transition-colors"
+            >
+              Cancel (Esc)
+            </button>
+          </div>
+        )}
+        
+        {/* Controls Panel */}
+        <ControlsPanel
+          filters={filters}
+          onSearchChange={setSearchQuery}
+          onToggleNodeType={toggleNodeType}
+          onToggleCluster={toggleCluster}
+          onReset={resetFilters}
+          onRestartLayout={restartSimulation}
+          isSimulating={isSimulating}
+          nodeCount={filteredNodes.length}
+          edgeCount={filteredEdges.length}
+        />
 
       {/* Edit Toolbar */}
       <EditToolbar
@@ -429,6 +519,7 @@ function GraphCanvasInner({
         onCreateNode={handleCreateNode}
         versionId={version?.id || "demo"}
       />
-    </div>
+      </div>
+    </ConnectModeContext.Provider>
   );
 }

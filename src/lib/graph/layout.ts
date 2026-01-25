@@ -28,29 +28,64 @@ interface SimLink extends SimulationLinkDatum<SimNode> {
   target: string | SimNode;
 }
 
+// Padding buffer to prevent edge-case overlaps
+const NODE_PADDING = 30;
+
 /**
- * Estimate node dimensions based on content
+ * Estimate node dimensions based on content.
+ * Uses measured size if available, otherwise calculates from content.
  */
-function estimateNodeSize(node: GraphNode): { width: number; height: number } {
-  // Base dimensions
-  let width = 200; // min-w-[200px]
-  let height = 60; // Base header + footer height
+export function estimateNodeSize(node: GraphNode): { width: number; height: number } {
+  // Use measured size if available (most accurate)
+  if (node.data.measuredSize) {
+    return {
+      width: node.data.measuredSize.width + NODE_PADDING,
+      height: node.data.measuredSize.height + NODE_PADDING,
+    };
+  }
+
+  // Base dimensions matching CodeNode CSS: min-w-[200px] max-w-[280px]
+  const MIN_WIDTH = 200;
+  const MAX_WIDTH = 280;
+  
+  // Base height: padding (py-2.5 = 10px * 2) + header row (~24px) + footer row (~18px)
+  let height = 20 + 24 + 18;
 
   // Add height for summary if present
   if (node.data.summary) {
-    // Estimate lines needed for summary (roughly 35 chars per line at 12px font)
+    // More accurate text wrapping calculation
+    // At 12px font with ~280px max width, roughly 40 chars per line
+    // Account for the px-3.5 padding (14px * 2 = 28px), leaving ~252px for text
+    const charsPerLine = 38;
     const summaryLength = node.data.summary.length;
-    const estimatedLines = Math.ceil(summaryLength / 35);
-    height += estimatedLines * 16 + 12; // 16px per line + divider margin
+    const estimatedLines = Math.ceil(summaryLength / charsPerLine);
+    // 16px line height + 2.5px margin bottom + divider (border + margin)
+    height += estimatedLines * 16 + 12;
   }
 
-  // Estimate width based on name length
+  // Estimate width based on name and type badge
+  // Header contains: icon (12px + padding) + name + type badge (varies)
   const nameLength = node.data.name.length;
-  if (nameLength > 15) {
-    width = Math.min(280, 200 + (nameLength - 15) * 5);
+  const typeBadgeLength = node.data.nodeType.length;
+  
+  // Approximate character width at 11px font is ~6px
+  const nameWidth = nameLength * 6;
+  const typeBadgeWidth = typeBadgeLength * 5 + 12; // 5px per char + padding
+  const headerContentWidth = 24 + nameWidth + typeBadgeWidth + 16; // icon + gaps
+  
+  // Width is max of min-width and content width, capped at max-width
+  let width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, headerContentWidth));
+  
+  // If summary exists and is long, content might push width
+  if (node.data.summary && node.data.summary.length > 60) {
+    width = MAX_WIDTH;
   }
 
-  return { width, height };
+  // Add padding buffer for layout safety
+  return { 
+    width: width + NODE_PADDING, 
+    height: height + NODE_PADDING 
+  };
 }
 
 /**
@@ -71,8 +106,8 @@ export function applyHierarchicalLayout(
 ): GraphNode[] {
   const {
     direction = "TB", // Top to Bottom - parents above children
-    rankSep = 80, // Vertical spacing between ranks/levels
-    nodeSep = 40,  // Horizontal spacing between nodes
+    rankSep = 120, // Vertical spacing between ranks/levels (increased for clarity)
+    nodeSep = 60,  // Horizontal spacing between nodes (increased to prevent overlaps)
   } = options;
 
   // Separate connected nodes from orphan nodes
@@ -158,12 +193,12 @@ export function applyHierarchicalLayout(
     const clusterCols = 2;
     const clusterRows = 2;
     
-    const orphanNodeWidth = 220; // Estimated average width
-    const orphanNodeHeight = 80; // Estimated average height
-    const nodeSpacingX = 25; // Spacing within cluster
-    const nodeSpacingY = 20; // Spacing within cluster
-    const clusterSpacingX = 80; // Spacing between clusters
-    const clusterSpacingY = 60; // Spacing between cluster rows
+    const orphanNodeWidth = 280 + NODE_PADDING; // Max width + padding
+    const orphanNodeHeight = 120 + NODE_PADDING; // Estimated average height + padding
+    const nodeSpacingX = 40; // Spacing within cluster (increased)
+    const nodeSpacingY = 35; // Spacing within cluster (increased)
+    const clusterSpacingX = 100; // Spacing between clusters (increased)
+    const clusterSpacingY = 80; // Spacing between cluster rows (increased)
 
     // Calculate cluster dimensions
     const clusterWidth = clusterCols * orphanNodeWidth + (clusterCols - 1) * nodeSpacingX;
@@ -255,15 +290,19 @@ export function applyForceLayout(
     // Center force - keeps graph centered
     .force("center", forceCenter(0, 0).strength(config.centerStrength))
     // Collision force - prevents overlap with dynamic radius
+    // Use diagonal of bounding box for accurate rectangular collision
     .force(
       "collide",
       forceCollide<SimNode>((d) => {
         const size = nodeSizes.get(d.id);
         if (size) {
-          return Math.max(size.width, size.height) / 2 + 20;
+          // Use half-diagonal for better rectangular collision detection
+          // This ensures nodes don't overlap even at corners
+          const diagonal = Math.sqrt(size.width * size.width + size.height * size.height);
+          return diagonal / 2 + 10; // Extra buffer for visual breathing room
         }
         return config.collisionRadius;
-      })
+      }).iterations(3) // More iterations for better collision resolution
     )
     // Cluster X force - pulls nodes toward cluster X position
     .force(
@@ -368,10 +407,12 @@ export function computeLayout(
       forceCollide<SimNode>((d) => {
         const size = nodeSizes.get(d.id);
         if (size) {
-          return Math.max(size.width, size.height) / 2 + 20;
+          // Use half-diagonal for better rectangular collision detection
+          const diagonal = Math.sqrt(size.width * size.width + size.height * size.height);
+          return diagonal / 2 + 10;
         }
         return config.collisionRadius;
-      })
+      }).iterations(3)
     )
     .force(
       "clusterX",

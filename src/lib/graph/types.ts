@@ -28,6 +28,12 @@ export type EdgeType = Database["public"]["Enums"]["edge_type"];
 // Cluster types for frontend/backend grouping
 export type ClusterType = "frontend" | "backend" | "shared" | "unknown";
 
+// Measured node size for layout calculations
+export interface NodeSize {
+  width: number;
+  height: number;
+}
+
 // Extended node data for React Flow
 export interface CodeNodeData extends Record<string, unknown> {
   // From database
@@ -56,6 +62,11 @@ export interface CodeNodeData extends Record<string, unknown> {
   isHighlighted?: boolean;
   isSelected?: boolean;
   isFaded?: boolean;
+  isConnectingSource?: boolean; // Node is the source in connect mode
+  isConnectTarget?: boolean; // Node can be clicked to complete connection
+  
+  // Measured dimensions for accurate layout
+  measuredSize?: NodeSize;
 }
 
 // React Flow node with our custom data
@@ -90,13 +101,13 @@ export interface LayoutConfig {
   collisionRadius: number;
 }
 
-// Default layout config - increased spacing for better clarity
+// Default layout config - optimized for better spacing and overlap prevention
 export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
-  clusterStrength: 0.4,
-  linkDistance: 180,
-  chargeStrength: -500,
-  centerStrength: 0.08,
-  collisionRadius: 80,
+  clusterStrength: 0.3,
+  linkDistance: 220, // Increased for more breathing room
+  chargeStrength: -600, // Stronger repulsion to prevent clustering
+  centerStrength: 0.06,
+  collisionRadius: 100, // Larger default collision radius
 };
 
 // Node type styling
