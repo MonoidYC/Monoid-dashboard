@@ -135,23 +135,34 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
       if (event.data?.type === 'setAuthSession') {
         console.log('[Monoid] Received setAuthSession message, session exists:', !!event.data?.session);
         if (event.data?.session && !isSettingSession) {
-          setIsSettingSession(true);
-          setAuthSession(event.data.session);
-        
-          // Set session in Supabase client AND set server-side cookies
-          const setSession = async () => {
+          // Check if we're already authenticated BEFORE setting session
+          const checkAndSetSession = async () => {
             try {
-              // Check if we're already authenticated (avoid unnecessary reload)
               const supabase = getSupabase();
-              const { data: { session: existingSession } } = await supabase.auth.getSession();
               
-              if (existingSession && existingSession.access_token === event.data.session.access_token) {
-                console.log('[Monoid] Already authenticated with same session, skipping');
-                setIsSettingSession(false);
-                return;
+              // First check if we're already authenticated by checking for user (reads from cookies)
+              const { data: { user }, error: userError } = await supabase.auth.getUser();
+              
+              if (user) {
+                console.log('[Monoid] Already authenticated, user:', user.email);
+                // Check if it's the same user
+                if (user.id === event.data.session.user?.id) {
+                  console.log('[Monoid] Same user, skipping session setup');
+                  setAuthSession(event.data.session);
+                  setIsSettingSession(false);
+                  return;
+                } else {
+                  console.log('[Monoid] Different user, will update session');
+                }
+              } else {
+                console.log('[Monoid] No authenticated user found, will set session');
               }
 
-              // First, set server-side cookies via API endpoint
+              // No valid session - set it
+              setIsSettingSession(true);
+              setAuthSession(event.data.session);
+
+              // Set server-side cookies via API endpoint
               console.log('[Monoid] Setting server session cookies...');
               const response = await fetch('/api/auth/vscode-session', {
                 method: 'POST',
@@ -197,7 +208,7 @@ export function WebviewProvider({ children }: { children: ReactNode }) {
             }
           };
 
-          setSession();
+          checkAndSetSession();
         } else if (isSettingSession) {
           console.log('[Monoid] Already setting session, ignoring duplicate message');
         }

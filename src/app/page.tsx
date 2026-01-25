@@ -389,10 +389,6 @@ export default function Home() {
             View Test Graph
           </Link>
         </div>
-
-        <p className="mt-5 text-sm text-gray-600 font-light">
-          No login required
-        </p>
       </div>
     </main>
   );
