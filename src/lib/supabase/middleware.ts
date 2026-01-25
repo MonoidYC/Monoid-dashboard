@@ -53,9 +53,13 @@ export async function updateSession(request: NextRequest) {
   const publicRoutes = [
     "/login",
     "/auth/callback",
+    "/auth/vscode-connect",
     "/share",
     "/api/mcp",
     "/api/docs",
+    "/graph",  // Allow webview access (auth handled client-side via VS Code)
+    "/tests",  // Allow webview access (auth handled client-side via VS Code)
+    "/",       // Home page is public
   ];
 
   const isPublicRoute = publicRoutes.some(
