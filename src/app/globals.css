@@ -68,17 +68,17 @@ body {
   border-bottom: none !important;
 }
 
-/* Horizontal controls variant */
-.react-flow__controls.\\!flex-row {
+/* Horizontal controls variant - use data attribute to avoid CSS minifier issues */
+.react-flow__controls[data-horizontal="true"] {
   flex-direction: row !important;
 }
 
-.react-flow__controls.\\!flex-row .react-flow__controls-button {
+.react-flow__controls[data-horizontal="true"] .react-flow__controls-button {
   border-bottom: none !important;
   border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
-.react-flow__controls.\\!flex-row .react-flow__controls-button:last-child {
+.react-flow__controls[data-horizontal="true"] .react-flow__controls-button:last-child {
   border-right: none !important;
 }
 
