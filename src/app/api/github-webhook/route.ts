@@ -15,8 +15,11 @@ import type {
   FeasibilityAnalysisParams 
 } from "@/lib/github-agent/types";
 
-// Disable body parsing - we need the raw body for signature verification
+// Use nodejs runtime for crypto operations
 export const runtime = "nodejs";
+
+// Increase max duration for analysis (Vercel Pro: up to 60s, Hobby: 10s)
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const requestId = generateRequestId();
@@ -90,13 +93,12 @@ export async function POST(req: NextRequest) {
         triggerUser: comment.user.login,
       };
 
-      // Run analysis in background
-      runAnalysisInBackground(analysisParams, requestId).catch((error) => {
-        console.error(`[${requestId}] Background analysis failed:`, error);
-      });
+      // Run analysis and wait for completion
+      // GitHub webhooks have a 10s timeout, but we extend via maxDuration
+      await runAnalysisInBackground(analysisParams, requestId);
 
       return NextResponse.json({
-        message: "Analysis started",
+        message: "Analysis complete",
         requestId,
         issueNumber: issue.number,
         trigger: "comment",
@@ -138,14 +140,11 @@ export async function POST(req: NextRequest) {
       installationId: installation.id,
     };
 
-    // Run analysis in background (don't block webhook response)
-    // This is important because GitHub expects a quick response
-    runAnalysisInBackground(analysisParams, requestId).catch((error) => {
-      console.error(`[${requestId}] Background analysis failed:`, error);
-    });
+    // Run analysis and wait for completion
+    await runAnalysisInBackground(analysisParams, requestId);
 
     return NextResponse.json({
-      message: "Analysis started",
+      message: "Analysis complete",
       requestId,
       issueNumber: issue.number,
       trigger: "issue",
