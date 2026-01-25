@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LogOut, Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { useWebview } from "@/components/providers/WebviewProvider";
@@ -11,7 +11,19 @@ interface SignOutButtonProps {
 
 export function SignOutButton({ className }: SignOutButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { isWebview, requestSignOut } = useWebview();
+  const [isMounted, setIsMounted] = useState(false);
+  const webviewContext = useWebview();
+  const isWebview = webviewContext?.isWebview ?? false;
+  const requestSignOut = webviewContext?.requestSignOut ?? (() => {});
+
+  // Ensure component only renders on client to avoid hydration issues
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null;
+  }
   
   const handleSignOut = async () => {
     setIsLoading(true);

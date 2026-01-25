@@ -43,6 +43,7 @@ const SOURCE_ICONS: Record<SourceType, React.ComponentType<{ className?: string 
   file: FileCode,
   generated: Sparkles,
   external: Globe,
+  synced: Github, // For synced tests (from existing test files)
 };
 
 interface TestNodeProps {
@@ -54,7 +55,7 @@ function TestNodeComponent({ data, selected }: TestNodeProps) {
   const typeColor = TEST_TYPE_COLORS[data.testType];
   const statusColor = data.lastStatus ? TEST_STATUS_COLORS[data.lastStatus] : "#6b7280";
   const RunnerIcon = RUNNER_ICONS[data.runner || "default"] || RUNNER_ICONS.default;
-  const SourceIcon = SOURCE_ICONS[data.sourceType];
+  const SourceIcon = SOURCE_ICONS[data.sourceType] || SOURCE_ICONS.file; // Fallback to file icon if source type not found
 
   const isHighlighted = data.isHighlighted;
   const isFaded = data.isFaded;
