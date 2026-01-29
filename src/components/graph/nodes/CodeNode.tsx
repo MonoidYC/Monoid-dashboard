@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { Handle, Position, useNodeId } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import {
   FunctionSquare,
   Workflow,
@@ -16,15 +16,11 @@ import {
   Type,
   FileType,
   Hash,
-  FlaskConical,
   Code,
   Github,
-  Link2,
-  Target,
 } from "lucide-react";
 import type { CodeNodeData, NodeType } from "@/lib/graph/types";
 import { NODE_TYPE_COLORS } from "@/lib/graph/types";
-import { useConnectMode } from "../GraphCanvas";
 
 // Icon mapping
 const ICONS: Record<NodeType, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -41,7 +37,7 @@ const ICONS: Record<NodeType, React.ComponentType<{ className?: string; style?: 
   type: Type,
   interface: FileType,
   constant: Hash,
-  test: FlaskConical,
+  test: Code,
   other: Code,
 };
 
@@ -51,24 +47,11 @@ interface CodeNodeProps {
 }
 
 function CodeNodeComponent({ data, selected }: CodeNodeProps) {
-  const nodeId = useNodeId();
-  const { startConnecting, connectingFromNodeId } = useConnectMode();
-  
   const Icon = ICONS[data.nodeType] || Code;
   const nodeColor = NODE_TYPE_COLORS[data.nodeType];
 
   const isHighlighted = data.isHighlighted;
   const isFaded = data.isFaded;
-  const isConnectingSource = data.isConnectingSource;
-  const isConnectTarget = data.isConnectTarget;
-  
-  // Handle connect button click
-  const handleConnectClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Don't trigger node selection
-    if (nodeId) {
-      startConnecting(nodeId);
-    }
-  };
 
   return (
     <>
@@ -76,11 +59,7 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
       <Handle
         type="target"
         position={Position.Top}
-        className={`!w-2 !h-2 !border-none transition-all ${
-          isConnectTarget 
-            ? "!w-4 !h-4 !bg-blue-400 !-top-2" 
-            : "!bg-white/30"
-        }`}
+        className="!w-2 !h-2 !border-none !bg-white/30 transition-all"
       />
 
       {/* Node content */}
@@ -91,32 +70,14 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
           ${selected ? "ring-2 ring-white/40 scale-[1.02]" : ""}
           ${isHighlighted ? "ring-2 ring-white/30 scale-[1.02]" : ""}
           ${isFaded ? "opacity-20" : "opacity-100"}
-          ${isConnectingSource ? "ring-2 ring-blue-400 scale-[1.03]" : ""}
-          ${isConnectTarget ? "cursor-pointer hover:ring-2 hover:ring-blue-400/50" : ""}
         `}
         style={{
-          backgroundColor: isConnectingSource 
-            ? `${nodeColor}20` 
-            : `${nodeColor}10`,
-          borderColor: isConnectingSource 
-            ? "#3b82f6" 
-            : `${nodeColor}30`,
-          boxShadow: isConnectingSource
-            ? `0 0 30px rgba(59, 130, 246, 0.4)`
-            : selected || isHighlighted
-              ? `0 0 24px ${nodeColor}25`
-              : `0 2px 12px rgba(0,0,0,0.5)`,
+          backgroundColor: `${nodeColor}10`,
+          borderColor: `${nodeColor}30`,
+          boxShadow:
+            selected || isHighlighted ? `0 0 24px ${nodeColor}25` : `0 2px 12px rgba(0,0,0,0.5)`,
         }}
       >
-        {/* Connect target overlay */}
-        {isConnectTarget && (
-          <div className="absolute inset-0 flex items-center justify-center bg-blue-500/10 rounded-xl pointer-events-none">
-            <div className="flex items-center gap-1.5 text-blue-400 text-xs font-medium">
-              <Target className="w-3 h-3" />
-              <span>Click to connect</span>
-            </div>
-          </div>
-        )}
         {/* Summary - primary content, shown first */}
         {data.summary && (
           <p className="text-[12px] text-white/80 leading-relaxed mb-2.5 font-light">
@@ -157,16 +118,6 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
             {data.filePath.split("/").pop()}:{data.startLine}
           </div>
           <div className="flex items-center gap-0.5">
-            {/* Connect button - only show when not in connect mode */}
-            {!connectingFromNodeId && (
-              <button
-                onClick={handleConnectClick}
-                className="p-1 hover:bg-blue-500/20 rounded transition-colors group"
-                title="Connect to another node"
-              >
-                <Link2 className="w-3 h-3 text-white/40 group-hover:text-blue-400" />
-              </button>
-            )}
             {data.githubLink && (
               <a
                 href={data.githubLink}
@@ -187,11 +138,7 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className={`!w-2 !h-2 !border-none transition-all ${
-          isConnectingSource 
-            ? "!w-4 !h-4 !bg-blue-400 !-bottom-2" 
-            : "!bg-white/30"
-        }`}
+        className="!w-2 !h-2 !border-none !bg-white/30 transition-all"
       />
     </>
   );

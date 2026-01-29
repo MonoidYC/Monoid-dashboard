@@ -2,10 +2,9 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertCircle, Network, Map } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Network } from "lucide-react";
 import { GraphCanvas } from "@/components/graph";
 import { useGraphData } from "@/components/graph/hooks";
-import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function GraphPage() {
   const params = useParams();
@@ -107,24 +106,11 @@ export default function GraphPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* View Roadmap Button - Only show for real repos */}
-          {repo && (
-            <Link
-              href={`/roadmap/${repo.id}`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 text-sm font-medium hover:bg-violet-500/20 transition-colors"
-            >
-              <Map className="w-4 h-4" />
-              View Roadmap
-            </Link>
-          )}
-          
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>{nodes.length} nodes</span>
             <span>·</span>
             <span>{edges.length} edges</span>
           </div>
-
-          {!isVSCode && <SignOutButton />}
         </div>
       </header>
 

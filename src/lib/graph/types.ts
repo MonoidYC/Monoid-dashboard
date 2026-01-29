@@ -125,7 +125,7 @@ export const NODE_TYPE_COLORS: Record<NodeType, string> = {
   type: "#6b7280", // gray
   interface: "#6b7280", // gray
   constant: "#64748b", // slate
-  test: "#84cc16", // lime
+  test: "#9ca3af", // gray (tests UI removed in public POC)
   other: "#9ca3af", // gray
 };
 
@@ -222,6 +222,6 @@ export const NODE_TYPE_ICONS: Record<NodeType, string> = {
   type: "Type",
   interface: "FileType",
   constant: "Hash",
-  test: "FlaskConical",
+  test: "Code",
   other: "Code",
 };

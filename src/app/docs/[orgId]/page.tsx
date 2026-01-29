@@ -16,9 +16,6 @@ import {
   Building2,
   FolderGit2,
   ExternalLink,
-  Terminal,
-  Copy,
-  Check,
 } from "lucide-react";
 import {
   getDocsByOrgId,
@@ -49,24 +46,6 @@ export default function DocsListPage() {
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocRepoId, setNewDocRepoId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  
-  // MCP info state
-  const [showMcpInfo, setShowMcpInfo] = useState(false);
-  const [copied, setCopied] = useState(false);
-  
-  // Get MCP endpoint URL (org-specific)
-  const mcpEndpoint = useMemo(() => {
-    if (!organization?.slug) return "";
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/api/mcp/${organization.slug}`;
-  }, [organization?.slug]);
-  
-  const handleCopyMcp = useCallback(() => {
-    if (!mcpEndpoint) return;
-    navigator.clipboard.writeText(mcpEndpoint);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [mcpEndpoint]);
 
   // Load data
   useEffect(() => {
@@ -216,18 +195,6 @@ export default function DocsListPage() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowMcpInfo(!showMcpInfo)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  showMcpInfo
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
-                }`}
-                title="MCP Server"
-              >
-                <Terminal className="w-4 h-4" />
-                MCP
-              </button>
-              <button
                 onClick={() => setShowNewDocModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors"
               >
@@ -238,62 +205,6 @@ export default function DocsListPage() {
           </div>
         </div>
       </header>
-
-      {/* MCP Connection Info */}
-      {showMcpInfo && (
-        <div className="border-b border-white/5 bg-emerald-500/5">
-          <div className="max-w-5xl mx-auto px-6 py-4">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                <Terminal className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-medium text-white mb-1">
-                  MCP Server for AI Agents
-                </h3>
-                <p className="text-xs text-gray-400 mb-3">
-                  Connect AI assistants (Claude, Cursor, etc.) to access your published documentation via the Model Context Protocol.
-                </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-2 bg-black/40 rounded-lg text-xs text-emerald-300 font-mono overflow-x-auto">
-                    {mcpEndpoint}
-                  </code>
-                  <button
-                    onClick={handleCopyMcp}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-white transition-colors"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div className="mt-3 text-xs text-gray-500">
-                  <strong className="text-gray-400">Available tools:</strong>{" "}
-                  <code className="text-emerald-400/80">list_docs</code>,{" "}
-                  <code className="text-emerald-400/80">get_doc</code>,{" "}
-                  <code className="text-emerald-400/80">search_docs</code>
-                  <span className="ml-2 text-gray-600">
-                    (no org_slug needed - it&apos;s in the URL)
-                  </span>
-                </div>
-                <div className="mt-3 pt-3 border-t border-white/5 text-xs text-gray-500">
-                  <strong className="text-gray-400">Test with MCP Inspector:</strong>{" "}
-                  <code className="text-white/70">npx @modelcontextprotocol/inspector</code>{" "}
-                  then add the endpoint URL above
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-6 py-8">
