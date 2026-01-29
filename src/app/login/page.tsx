@@ -45,8 +45,19 @@ export default function LoginPage() {
         
         console.log("[Login] Sign in successful, user:", data.user?.email);
         
-        // Use full page reload to ensure middleware picks up the new cookies
-        window.location.href = "/";
+        // Use Next.js router for navigation (works in embedded webviews)
+        // Then refresh to ensure middleware picks up the new cookies
+        router.push("/");
+        router.refresh();
+        
+        // Fallback: If router doesn't navigate (e.g., in some webviews), 
+        // try window.location after a short delay
+        setTimeout(() => {
+          if (window.location.pathname === "/login") {
+            console.log("[Login] Router navigation didn't work, trying window.location");
+            window.location.replace("/");
+          }
+        }, 500);
       }
     } catch (err: any) {
       console.error("[Login] Error:", err);
