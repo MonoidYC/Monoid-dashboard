@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   Calendar,
@@ -11,15 +12,25 @@ import {
   Hash,
   Loader2,
   Network,
+  LogOut,
 } from "lucide-react";
 import { getOrganizationsWithRepos } from "@/lib/graph/queries";
 import type { OrganizationWithRepos, RepoWithVersions, RepoVersionRow } from "@/lib/graph/types";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Home() {
+  const router = useRouter();
+  const supabase = createClient();
   const [orgData, setOrgData] = useState<OrganizationWithRepos[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set());
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -111,14 +122,23 @@ export default function Home() {
     <main className="min-h-screen bg-[#08080a] text-white">
       <header className="border-b border-white/5 bg-[#0c0c0e]">
         <div className="max-w-5xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-              <Network className="w-5 h-5 text-white/80" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                <Network className="w-5 h-5 text-white/80" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Monoid</h1>
+                <p className="text-sm text-gray-400">Visualize your codebase as a graph.</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Monoid</h1>
-              <p className="text-sm text-gray-400">Visualize your codebase as a graph.</p>
-            </div>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium text-white/70 hover:text-white transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign out
+            </button>
           </div>
         </div>
       </header>

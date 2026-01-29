@@ -1,4 +1,4 @@
-import { getSupabase } from "../supabase";
+import { createClient } from "../supabase/client";
 import type { OrgDocRow, CreateDocInput, UpdateDocInput } from "./types";
 
 const STORAGE_BUCKET = "docs";
@@ -9,7 +9,7 @@ async function saveToStorage(
   slug: string,
   content: string
 ): Promise<{ path: string | null; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Create a path for the doc file: docs/{orgId}/{slug}.md
   const filePath = `${orgId}/${slug}.md`;
@@ -38,7 +38,7 @@ export async function loadFromStorage(
   orgId: string,
   slug: string
 ): Promise<{ content: string | null; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const filePath = `${orgId}/${slug}.md`;
 
@@ -67,7 +67,7 @@ async function deleteFromStorage(
   orgId: string,
   slug: string
 ): Promise<{ error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const filePath = `${orgId}/${slug}.md`;
 
@@ -85,7 +85,7 @@ async function deleteFromStorage(
 export async function createDoc(
   input: CreateDocInput
 ): Promise<{ doc: OrgDocRow | null; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Save content to storage first if provided
   if (input.content) {
@@ -130,7 +130,7 @@ export async function updateDoc(
   currentSlug: string,
   input: UpdateDocInput
 ): Promise<{ doc: OrgDocRow | null; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // If content changed, save to storage
   if (input.content !== undefined) {
@@ -180,7 +180,7 @@ export async function deleteDoc(
   orgId: string,
   slug: string
 ): Promise<{ success: boolean; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Delete from storage first
   await deleteFromStorage(orgId, slug);
@@ -208,7 +208,7 @@ export async function upsertDoc(
     isPublished?: boolean;
   }
 ): Promise<{ doc: OrgDocRow | null; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Save to storage first
   const { error: storageError } = await saveToStorage(orgId, slug, content);
@@ -251,7 +251,7 @@ export async function upsertDoc(
 export async function togglePublishStatus(
   docId: string
 ): Promise<{ doc: OrgDocRow | null; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Get current status
   const { data: existing, error: fetchError } = await supabase
@@ -288,7 +288,7 @@ export async function reorderDocs(
   orgId: string,
   docIds: string[]
 ): Promise<{ success: boolean; error: Error | null }> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Update order_index for each doc
   const updates = docIds.map((id, index) =>

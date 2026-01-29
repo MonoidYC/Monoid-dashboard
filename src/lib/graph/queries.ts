@@ -1,4 +1,4 @@
-import { getSupabase } from "../supabase";
+import { createClient } from "../supabase/client";
 import type {
   CodeNodeRow,
   CodeEdgeRow,
@@ -16,7 +16,7 @@ import { detectCluster } from "./types";
 
 // Fetch all organizations
 export async function getOrganizations(): Promise<OrganizationRow[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("organizations")
@@ -33,7 +33,7 @@ export async function getOrganizations(): Promise<OrganizationRow[]> {
 
 // Fetch organizations with their repos and versions (hierarchical data)
 export async function getOrganizationsWithRepos(): Promise<OrganizationWithRepos[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Fetch all organizations
   const { data: orgs, error: orgsError } = await supabase
@@ -141,7 +141,7 @@ export async function getOrCreateOrganization(
   avatarUrl?: string,
   githubId?: string
 ): Promise<OrganizationRow | null> {
-  const supabase = getSupabase();
+  const supabase = createClient();
   const orgSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
   // Try to find existing org by slug or github_id
@@ -183,7 +183,7 @@ export async function linkRepoToOrganization(
   repoId: string,
   organizationId: string
 ): Promise<boolean> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { error } = await supabase
     .from("repos")
@@ -203,7 +203,7 @@ export async function getRepoVersion(versionId: string): Promise<{
   version: RepoVersionRow;
   repo: RepoRow;
 } | null> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data: version, error: versionError } = await supabase
     .from("repo_versions")
@@ -232,7 +232,7 @@ export async function getRepoVersion(versionId: string): Promise<{
 
 // Fetch all code nodes for a version
 export async function getCodeNodes(versionId: string): Promise<CodeNodeRow[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("code_nodes")
@@ -250,7 +250,7 @@ export async function getCodeNodes(versionId: string): Promise<CodeNodeRow[]> {
 
 // Fetch all code edges for a version
 export async function getCodeEdges(versionId: string): Promise<CodeEdgeRow[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("code_edges")

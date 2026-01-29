@@ -1,4 +1,4 @@
-import { getSupabase } from "../supabase";
+import { createClient } from "../supabase/client";
 import type { EdgeType } from "./types";
 import type { Database } from "../database.types";
 
@@ -17,7 +17,7 @@ interface NewEdgeInput {
  * This is intentionally simple for the POC: it just inserts a new row.
  */
 export async function addUserEdge(versionId: string, edge: NewEdgeInput): Promise<void> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { error } = await supabase
     .from("code_edges")

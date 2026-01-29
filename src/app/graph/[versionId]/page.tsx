@@ -1,12 +1,15 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertCircle, Network } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, Network, LogOut } from "lucide-react";
 import { GraphCanvas } from "@/components/graph";
 import { useGraphData } from "@/components/graph/hooks";
+import { createClient } from "@/lib/supabase/client";
 
 export default function GraphPage() {
+  const router = useRouter();
+  const supabase = createClient();
   const params = useParams();
   const searchParams = useSearchParams();
   const versionId = params.versionId as string;
@@ -14,6 +17,12 @@ export default function GraphPage() {
   const isVSCode = searchParams.get("vscode") === "true";
 
   const { nodes, edges, repo, version, isLoading, error } = useGraphData(versionId);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   // Loading state
   if (isLoading) {
@@ -74,7 +83,7 @@ export default function GraphPage() {
     <div className="h-screen flex flex-col bg-[#08080a]">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-[#0c0c0e]">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-1">
           <Link
             href="/"
             className="p-2 hover:bg-white/5 rounded-lg transition-colors"
@@ -111,6 +120,13 @@ export default function GraphPage() {
             <span>·</span>
             <span>{edges.length} edges</span>
           </div>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white/70 hover:text-white transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
+          </button>
         </div>
       </header>
 

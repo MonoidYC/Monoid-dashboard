@@ -1,9 +1,9 @@
-import { getSupabase } from "../supabase";
+import { createClient } from "../supabase/client";
 import type { OrgDocRow, OrganizationRow, RepoRow, OrgAutocompleteNode } from "./types";
 
 // Fetch all docs for an organization
 export async function getDocsByOrgId(orgId: string): Promise<OrgDocRow[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("org_docs")
@@ -25,7 +25,7 @@ export async function getDocBySlug(
   orgId: string,
   slug: string
 ): Promise<OrgDocRow | null> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("org_docs")
@@ -47,7 +47,7 @@ export async function getDocBySlug(
 
 // Fetch a single doc by ID
 export async function getDocById(docId: string): Promise<OrgDocRow | null> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("org_docs")
@@ -67,7 +67,7 @@ export async function getDocById(docId: string): Promise<OrgDocRow | null> {
 export async function getOrganizationById(
   orgId: string
 ): Promise<OrganizationRow | null> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("organizations")
@@ -85,7 +85,7 @@ export async function getOrganizationById(
 
 // Fetch all repos for an organization
 export async function getReposByOrgId(orgId: string): Promise<RepoRow[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("repos")
@@ -105,7 +105,7 @@ export async function getReposByOrgId(orgId: string): Promise<RepoRow[]> {
 export async function getAllNodesForOrg(
   orgId: string
 ): Promise<OrgAutocompleteNode[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // First get all repos for the organization
   const { data: repos, error: repoError } = await supabase
@@ -220,7 +220,7 @@ export async function searchNodesForRepoAutocomplete(
   query: string,
   limit: number = 10
 ): Promise<OrgAutocompleteNode[]> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Get repo info
   const { data: repo, error: repoError } = await supabase
@@ -293,7 +293,7 @@ export async function isSlugAvailable(
   slug: string,
   excludeDocId?: string
 ): Promise<boolean> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   let query = supabase
     .from("org_docs")
@@ -319,7 +319,7 @@ export async function isSlugAvailable(
 export async function getPublishedDocsByOrgSlug(
   orgSlug: string
 ): Promise<{ docs: OrgDocRow[]; org: OrganizationRow } | null> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Get organization by slug
   const { data: org, error: orgError } = await supabase
@@ -353,7 +353,7 @@ export async function getPublishedDocBySlug(
   orgSlug: string,
   docSlug: string
 ): Promise<{ doc: OrgDocRow; org: OrganizationRow } | null> {
-  const supabase = getSupabase();
+  const supabase = createClient();
 
   // Get organization by slug
   const { data: org, error: orgError } = await supabase
