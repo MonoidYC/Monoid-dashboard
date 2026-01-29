@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
@@ -11,8 +11,28 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isVSCodeWebview, setIsVSCodeWebview] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+  
+  // Detect if we're inside a VS Code webview
+  useEffect(() => {
+    // Check URL param first (set by the webview)
+    if (searchParams.get("vscode") === "true") {
+      setIsVSCodeWebview(true);
+    }
+    
+    // Also listen for message from parent webview
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "vscodeWebview" && event.data?.isWebview) {
+        setIsVSCodeWebview(true);
+      }
+    };
+    
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,20 +64,25 @@ export default function LoginPage() {
         }
         
         console.log("[Login] Sign in successful, user:", data.user?.email);
+        console.log("[Login] Is VS Code webview:", isVSCodeWebview);
         
-        // Use Next.js router for navigation (works in embedded webviews)
-        // Then refresh to ensure middleware picks up the new cookies
-        router.push("/");
-        router.refresh();
-        
-        // Fallback: If router doesn't navigate (e.g., in some webviews), 
-        // try window.location after a short delay
-        setTimeout(() => {
-          if (window.location.pathname === "/login") {
-            console.log("[Login] Router navigation didn't work, trying window.location");
-            window.location.replace("/");
-          }
-        }, 500);
+        if (isVSCodeWebview) {
+          // In VS Code webview: tell the parent to navigate the iframe
+          console.log("[Login] Posting navigation message to parent webview");
+          window.parent.postMessage({ 
+            type: "navigate", 
+            url: window.location.origin + "/" 
+          }, "*");
+          
+          // Also try sending a custom message that the webview can handle
+          window.parent.postMessage({ 
+            type: "authSuccess",
+            redirectUrl: "/" 
+          }, "*");
+        } else {
+          // Regular browser: use full page reload
+          window.location.href = "/";
+        }
       }
     } catch (err: any) {
       console.error("[Login] Error:", err);
