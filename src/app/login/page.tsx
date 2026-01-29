@@ -66,18 +66,16 @@ function LoginForm() {
         console.log("[Login] Is VS Code webview:", isVSCodeWebview);
         
         if (isVSCodeWebview) {
-          // In VS Code webview: tell the parent to navigate the iframe
-          console.log("[Login] Posting navigation message to parent webview");
-          window.parent.postMessage({ 
-            type: "navigate", 
-            url: window.location.origin + "/" 
-          }, "*");
-          
-          // Also try sending a custom message that the webview can handle
-          window.parent.postMessage({ 
-            type: "authSuccess",
-            redirectUrl: "/" 
-          }, "*");
+          // In VS Code webview: navigate inside the iframe after a short delay
+          // so the session cookie is persisted before the request (avoids
+          // third-party cookie issues from parent-driven iframe reload)
+          const redirect = () => {
+            console.log("[Login] Navigating to / inside iframe");
+            window.location.replace("/");
+          };
+          setTimeout(redirect, 800);
+          // Also tell parent so it can update iframe URL if needed
+          window.parent.postMessage({ type: "authSuccess", redirectUrl: "/" }, "*");
         } else {
           // Regular browser: use full page reload
           window.location.href = "/";
