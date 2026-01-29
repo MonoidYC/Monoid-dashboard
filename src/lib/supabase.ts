@@ -1,24 +1,10 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
+import { createClient as createBrowserClient } from "./supabase/client";
 
-// Lazily initialized Supabase client (public anon)
-let _supabase: SupabaseClient<Database> | null = null;
-
-export function getSupabase(): SupabaseClient<Database> {
-  if (_supabase) return _supabase;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase environment variables. " +
-        "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
-    );
-  }
-
-  _supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
-  return _supabase;
+// Use the singleton browser client with proper cookie auth
+export function getSupabase() {
+  return createBrowserClient();
 }
 
 // Legacy export for backwards compatibility

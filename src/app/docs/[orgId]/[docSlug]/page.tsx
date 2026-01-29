@@ -122,7 +122,7 @@ export default function DocEditorPage() {
         .eq("repo_id", node.repoId)
         .order("ingested_at", { ascending: false })
         .limit(1)
-        .single();
+        .single() as { data: { id: string } | null };
       
       if (version) {
         router.push(`/graph/${version.id}?highlight=${node.id}`);

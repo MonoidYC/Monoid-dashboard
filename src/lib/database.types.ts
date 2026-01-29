@@ -240,6 +240,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          created_by: string | null
           description: string | null
           github_id: string | null
           id: string
@@ -250,6 +251,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           github_id?: string | null
           id?: string
@@ -260,6 +262,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          created_by?: string | null
           description?: string | null
           github_id?: string | null
           id?: string
@@ -489,6 +492,7 @@ export type Database = {
           id: string
           last_duration_ms: number | null
           last_error: string | null
+          last_ran_video: string | null
           last_run_at: string | null
           last_status: string | null
           metadata: Json | null
@@ -510,6 +514,7 @@ export type Database = {
           id?: string
           last_duration_ms?: number | null
           last_error?: string | null
+          last_ran_video?: string | null
           last_run_at?: string | null
           last_status?: string | null
           metadata?: Json | null
@@ -531,6 +536,7 @@ export type Database = {
           id?: string
           last_duration_ms?: number | null
           last_error?: string | null
+          last_ran_video?: string | null
           last_run_at?: string | null
           last_status?: string | null
           metadata?: Json | null
@@ -591,6 +597,7 @@ export type Database = {
           name: string
           slug: string
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -598,6 +605,7 @@ export type Database = {
           name: string
           slug: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -605,6 +613,7 @@ export type Database = {
           name?: string
           slug?: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -633,6 +642,7 @@ export type Database = {
         Returns: string
       }
       user_has_workspace_access: { Args: { ws_id: string }; Returns: boolean }
+      whoami: { Args: never; Returns: Json }
     }
     Enums: {
       edge_type:

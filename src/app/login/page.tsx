@@ -32,15 +32,24 @@ export default function LoginPage() {
         // Show success message for email confirmation
         alert("Check your email to confirm your account!");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        router.push("/");
-        router.refresh();
+        
+        // Verify we got a session
+        if (!data.session) {
+          throw new Error("No session returned from sign in");
+        }
+        
+        console.log("[Login] Sign in successful, user:", data.user?.email);
+        
+        // Use full page reload to ensure middleware picks up the new cookies
+        window.location.href = "/";
       }
     } catch (err: any) {
+      console.error("[Login] Error:", err);
       setError(err.message || "An error occurred");
     } finally {
       setLoading(false);
