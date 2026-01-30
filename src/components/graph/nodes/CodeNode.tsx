@@ -20,7 +20,7 @@ import {
   Github,
 } from "lucide-react";
 import type { CodeNodeData, NodeType } from "@/lib/graph/types";
-import { NODE_TYPE_COLORS } from "@/lib/graph/types";
+import { NODE_TYPE_COLORS, CLUSTER_COLORS } from "@/lib/graph/types";
 
 // Icon mapping
 const ICONS: Record<NodeType, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
@@ -48,7 +48,8 @@ interface CodeNodeProps {
 
 function CodeNodeComponent({ data, selected }: CodeNodeProps) {
   const Icon = ICONS[data.nodeType] || Code;
-  const nodeColor = NODE_TYPE_COLORS[data.nodeType];
+  const nodeTypeColor = NODE_TYPE_COLORS[data.nodeType];
+  const clusterColor = CLUSTER_COLORS[data.cluster];
 
   const isHighlighted = data.isHighlighted;
   const isFaded = data.isFaded;
@@ -62,7 +63,7 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
         className="!w-2 !h-2 !border-none !bg-white/30 transition-all"
       />
 
-      {/* Node content */}
+      {/* Node content - border/background use cluster color so it updates when cluster changes */}
       <div
         className={`
           relative px-3.5 py-2.5 rounded-xl border
@@ -72,10 +73,10 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
           ${isFaded ? "opacity-20" : "opacity-100"}
         `}
         style={{
-          backgroundColor: `${nodeColor}10`,
-          borderColor: `${nodeColor}30`,
+          backgroundColor: `${clusterColor}10`,
+          borderColor: `${clusterColor}30`,
           boxShadow:
-            selected || isHighlighted ? `0 0 24px ${nodeColor}25` : `0 2px 12px rgba(0,0,0,0.5)`,
+            selected || isHighlighted ? `0 0 24px ${clusterColor}25` : `0 2px 12px rgba(0,0,0,0.5)`,
         }}
       >
         {/* Summary - primary content, shown first */}
@@ -90,13 +91,13 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
           <div className="border-t border-white/5 mb-2" />
         )}
 
-        {/* Header with icon, name, and type badge */}
+        {/* Header with icon, name, and type badge - icon/type use node type color */}
         <div className="flex items-center gap-2">
           <div
             className="p-1 rounded"
-            style={{ backgroundColor: `${nodeColor}20` }}
+            style={{ backgroundColor: `${nodeTypeColor}20` }}
           >
-            <Icon className="w-3 h-3" style={{ color: nodeColor }} />
+            <Icon className="w-3 h-3" style={{ color: nodeTypeColor }} />
           </div>
           <span className="font-medium text-[11px] text-white/70 truncate flex-1">
             {data.name}
@@ -104,8 +105,8 @@ function CodeNodeComponent({ data, selected }: CodeNodeProps) {
           <span 
             className="text-[9px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded"
             style={{ 
-              color: nodeColor,
-              backgroundColor: `${nodeColor}15`,
+              color: nodeTypeColor,
+              backgroundColor: `${nodeTypeColor}15`,
             }}
           >
             {data.nodeType}

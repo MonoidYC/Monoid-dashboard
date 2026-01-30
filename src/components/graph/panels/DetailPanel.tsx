@@ -10,8 +10,10 @@ import {
   GitCommit,
 } from "lucide-react";
 import type { GraphNode, RepoRow, RepoVersionRow } from "@/lib/graph/types";
-import { NODE_TYPE_COLORS, CLUSTER_COLORS } from "@/lib/graph/types";
+import { NODE_TYPE_COLORS, CLUSTER_COLORS, type ClusterType } from "@/lib/graph/types";
 import { generateGitHubPermalink } from "@/lib/graph/queries";
+
+const CLUSTER_OPTIONS: ClusterType[] = ["frontend", "backend", "shared", "unknown"];
 
 interface DetailPanelProps {
   node: GraphNode | null;
@@ -23,6 +25,7 @@ interface DetailPanelProps {
   };
   onClose: () => void;
   onNodeSelect: (node: GraphNode) => void;
+  onClusterChange?: (nodeId: string, cluster: ClusterType) => void;
 }
 
 export function DetailPanel({
@@ -32,6 +35,7 @@ export function DetailPanel({
   connectedNodes,
   onClose,
   onNodeSelect,
+  onClusterChange,
 }: DetailPanelProps) {
   // Generate GitHub permalink - prefer direct link from node, otherwise generate from repo info
   const permalink = useMemo(() => {
@@ -73,15 +77,33 @@ export function DetailPanel({
               >
                 {data.nodeType}
               </span>
-              <div
-                className="px-1.5 py-0.5 rounded text-[10px] font-medium capitalize"
-                style={{
-                  backgroundColor: `${clusterColor}20`,
-                  color: clusterColor,
-                }}
-              >
-                {data.cluster}
-              </div>
+              {onClusterChange ? (
+                <select
+                  value={data.cluster}
+                  onChange={(e) => onClusterChange(node.id, e.target.value as ClusterType)}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium capitalize bg-white/5 border border-white/10 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-white/20"
+                  style={{
+                    color: clusterColor,
+                  }}
+                  title="Change cluster"
+                >
+                  {CLUSTER_OPTIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium capitalize"
+                  style={{
+                    backgroundColor: `${clusterColor}20`,
+                    color: clusterColor,
+                  }}
+                >
+                  {data.cluster}
+                </div>
+              )}
             </div>
             <h3 className="font-semibold text-lg truncate">{data.name}</h3>
             {data.qualifiedName && data.qualifiedName !== data.name && (

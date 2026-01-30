@@ -23,6 +23,7 @@ import { DetailPanel } from "./panels/DetailPanel";
 import { useForceLayout } from "./hooks/useForceLayout";
 import { useGraphFilters } from "./hooks/useGraphFilters";
 import type { GraphNode, GraphEdge, RepoRow, RepoVersionRow } from "@/lib/graph/types";
+import type { ClusterType } from "@/lib/graph/types";
 import { addUserEdge } from "@/lib/graph/mutations";
 
 const nodeTypes = { codeNode: CodeNode, clusterNode: ClusterNode } as any;
@@ -162,6 +163,22 @@ function GraphCanvasInner({ initialNodes, initialEdges, repo, version, highlight
     [getNodes, setCenter]
   );
 
+  const handleClusterChange = useCallback(
+    (nodeId: string, newCluster: ClusterType) => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === nodeId ? { ...n, data: { ...n.data, cluster: newCluster } } : n
+        )
+      );
+      if (selectedNode?.id === nodeId) {
+        setSelectedNode((prev) =>
+          prev ? { ...prev, data: { ...prev.data, cluster: newCluster } } : null
+        );
+      }
+    },
+    [setNodes, selectedNode?.id]
+  );
+
   const handleConnect = useCallback(
     (connection: Connection) => {
       const { source, target } = connection;
@@ -218,6 +235,7 @@ function GraphCanvasInner({ initialNodes, initialEdges, repo, version, highlight
         connectedNodes={connectedNodes}
         onNodeSelect={handleNodeSelect}
         onClose={() => setSelectedNode(null)}
+        onClusterChange={handleClusterChange}
       />
 
       <ReactFlow
