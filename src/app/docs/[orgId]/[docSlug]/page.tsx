@@ -19,6 +19,7 @@ import {
   Pencil,
   Share2,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import { DocMarkdownEditor } from "@/components/docs";
 import {
@@ -80,6 +81,10 @@ export default function DocEditorPage() {
   
   // Share link copied state
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  
+  // Repo dropdown state
+  const [isRepoDropdownOpen, setIsRepoDropdownOpen] = useState(false);
+  const repoDropdownRef = useRef<HTMLDivElement>(null);
   
   // Preview container ref for handling node link clicks
   const previewRef = useRef<HTMLDivElement>(null);
@@ -307,6 +312,23 @@ export default function DocEditorPage() {
     setTimeout(() => setShareLinkCopied(false), 2000);
   }, [organization, docSlug]);
 
+  // Close repo dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        repoDropdownRef.current &&
+        !repoDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsRepoDropdownOpen(false);
+      }
+    };
+
+    if (isRepoDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isRepoDropdownOpen]);
+
   // Keyboard shortcut for save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -415,19 +437,65 @@ export default function DocEditorPage() {
                 </button>
               ) : (
                 <>
-                  {/* Repo Selector */}
-                  <select
-                    value={repoId || ""}
-                    onChange={(e) => setRepoId(e.target.value || null)}
-                    className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-violet-500 max-w-[180px]"
-                  >
-                    <option value="">All Repos</option>
-                    {repos.map((repo) => (
-                      <option key={repo.id} value={repo.id}>
-                        {repo.name}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Repo Selector - Custom Dropdown */}
+                  <div className="relative" ref={repoDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsRepoDropdownOpen(!isRepoDropdownOpen)}
+                      className="flex items-center justify-between gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm hover:bg-white/10 focus:outline-none focus:border-violet-500 transition-colors max-w-[180px] w-full"
+                    >
+                      <span className="truncate">
+                        {repoId
+                          ? repos.find((r) => r.id === repoId)?.name || "Select Repo"
+                          : "All Repos"}
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 flex-shrink-0 transition-transform ${
+                          isRepoDropdownOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {isRepoDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 w-full bg-[#0c0c0e] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
+                        <div className="max-h-60 overflow-y-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRepoId(null);
+                              setIsRepoDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                              !repoId
+                                ? "bg-violet-500/20 text-violet-300"
+                                : "text-white hover:bg-white/5"
+                            }`}
+                          >
+                            <FolderGit2 className="w-4 h-4 flex-shrink-0" />
+                            <span>All Repos</span>
+                          </button>
+                          {repos.map((repo) => (
+                            <button
+                              key={repo.id}
+                              type="button"
+                              onClick={() => {
+                                setRepoId(repo.id);
+                                setIsRepoDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                                repoId === repo.id
+                                  ? "bg-violet-500/20 text-violet-300"
+                                  : "text-white hover:bg-white/5"
+                              }`}
+                            >
+                              <FolderGit2 className="w-4 h-4 flex-shrink-0" />
+                              <span className="truncate">{repo.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Preview Toggle */}
                   <button

@@ -2,7 +2,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FileText, Building2, Github } from "lucide-react";
-import { getSupabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
+import { ShareMarkdownContent } from "@/components/docs/ShareMarkdownContent";
 
 interface Props {
   params: Promise<{
@@ -13,17 +14,30 @@ interface Props {
 
 export default async function ShareDocPage({ params }: Props) {
   const { orgSlug, docSlug } = await params;
-  const supabase = getSupabase();
+  const supabase = await createClient();
 
-  // Get organization by slug
-  const { data: organization } = await supabase
-    .from("organizations")
-    .select("*")
-    .eq("slug", orgSlug)
-    .single();
+  // Get organization by slug using the public function (works for published docs)
+  // This allows public access to org info for share links
+  const { data: orgData, error: orgError } = await supabase.rpc(
+    "get_org_for_published_doc",
+    { org_slug: orgSlug }
+  );
 
-  if (!organization) {
-    notFound();
+  let organization;
+  if (orgError || !orgData || orgData.length === 0) {
+    // Fallback: try direct query (for authenticated users who are members)
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("slug", orgSlug)
+      .single();
+    
+    if (!org) {
+      notFound();
+    }
+    organization = org;
+  } else {
+    organization = orgData[0];
   }
 
   // Get published doc
@@ -85,11 +99,10 @@ export default async function ShareDocPage({ params }: Props) {
                 {doc.description}
               </p>
             )}
-            <div
-              className="markdown-preview"
-              dangerouslySetInnerHTML={{
-                __html: renderMarkdown(doc.content),
-              }}
+            <ShareMarkdownContent
+              htmlContent={renderMarkdown(doc.content)}
+              orgId={organization.id}
+              repoId={doc.repo_id}
             />
           </article>
         </div>
@@ -132,10 +145,10 @@ function renderMarkdown(content: string): string {
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-white/5 rounded-lg p-4 overflow-x-auto my-4"><code>$2</code></pre>')
     // Inline code
     .replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1.5 py-0.5 rounded text-sm">$1</code>')
-    // Node links - render as styled text (no interactivity in public view)
+    // Node links - make them clickable
     .replace(
       /\[\[Node:\s*([^\]]+)\]\]/g,
-      '<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-300 rounded text-sm font-medium">$1</span>'
+      '<a href="#" data-node-name="$1" class="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 hover:text-violet-200 rounded text-sm font-medium cursor-pointer transition-colors no-underline">$1 →</a>'
     )
     // Lists
     .replace(/^\s*[-*]\s+(.*)$/gm, '<li class="ml-4 my-1">$1</li>')

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,6 +16,7 @@ import {
   Building2,
   FolderGit2,
   ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import {
   getDocsByOrgId,
@@ -46,6 +47,8 @@ export default function DocsListPage() {
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocRepoId, setNewDocRepoId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isRepoDropdownOpen, setIsRepoDropdownOpen] = useState(false);
+  const repoDropdownRef = useRef<HTMLDivElement>(null);
 
   // Load data
   useEffect(() => {
@@ -78,6 +81,23 @@ export default function DocsListPage() {
 
     loadData();
   }, [orgId]);
+
+  // Close repo dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        repoDropdownRef.current &&
+        !repoDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsRepoDropdownOpen(false);
+      }
+    };
+
+    if (isRepoDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isRepoDropdownOpen]);
 
   // Create new doc
   const handleCreateDoc = useCallback(async () => {
@@ -349,25 +369,72 @@ export default function DocsListPage() {
                 />
               </div>
 
-              {/* Repo Selector */}
+              {/* Repo Selector - Custom Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-2">
                   Repository (Optional)
                 </label>
-                <select
-                  value={newDocRepoId || ""}
-                  onChange={(e) =>
-                    setNewDocRepoId(e.target.value || null)
-                  }
-                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-violet-500"
-                >
-                  <option value="">General Organization Docs</option>
-                  {repos.map((repo) => (
-                    <option key={repo.id} value={repo.id}>
-                      {repo.owner}/{repo.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={repoDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsRepoDropdownOpen(!isRepoDropdownOpen)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white hover:bg-white/10 focus:outline-none focus:border-violet-500 transition-colors"
+                  >
+                    <span className="text-left truncate">
+                      {newDocRepoId
+                        ? (() => {
+                            const repo = repos.find((r) => r.id === newDocRepoId);
+                            return repo ? `${repo.owner}/${repo.name}` : "Select Repository";
+                          })()
+                        : "General Organization Docs"}
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 flex-shrink-0 transition-transform ${
+                        isRepoDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {isRepoDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-full bg-[#0c0c0e] border border-white/10 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <div className="max-h-60 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewDocRepoId(null);
+                            setIsRepoDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
+                            !newDocRepoId
+                              ? "bg-violet-500/20 text-violet-300"
+                              : "text-white hover:bg-white/5"
+                          }`}
+                        >
+                          <FolderGit2 className="w-4 h-4 flex-shrink-0" />
+                          <span>General Organization Docs</span>
+                        </button>
+                        {repos.map((repo) => (
+                          <button
+                            key={repo.id}
+                            type="button"
+                            onClick={() => {
+                              setNewDocRepoId(repo.id);
+                              setIsRepoDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
+                              newDocRepoId === repo.id
+                                ? "bg-violet-500/20 text-violet-300"
+                                : "text-white hover:bg-white/5"
+                            }`}
+                          >
+                            <FolderGit2 className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{repo.owner}/{repo.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <p className="mt-1.5 text-xs text-gray-500">
                   Link to a specific repo for targeted autocomplete
                 </p>
@@ -380,6 +447,7 @@ export default function DocsListPage() {
                   setShowNewDocModal(false);
                   setNewDocTitle("");
                   setNewDocRepoId(null);
+                  setIsRepoDropdownOpen(false);
                 }}
                 className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
               >

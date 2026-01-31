@@ -17,9 +17,11 @@ This dashboard focuses on **visualization only**: graph view, docs, and share. C
   CRUD UI for markdown documents stored in `org_docs`, grouped by `organizations`. Docs can deep-link back into the graph via node IDs.
 
 - **Share view**: `/share/[orgSlug]/[docSlug]`  
-  Public, read-only view of published docs.
+  Public, read-only view of published docs (no sign-in required).
 
-There is **no authentication** in this open-source POC; everything is public, backed by a Supabase anon key.
+### Authentication
+
+The dashboard uses **Supabase Auth** with **email/password** sign-in and sign-up. Sign-in and sign-up are at `/login`. Middleware protects most routes: unauthenticated users are redirected to `/login`. The **share** route (`/share/[orgSlug]/[docSlug]`) and the login page are public; graph and docs routes require an authenticated session.
 
 ### Tested frameworks & community
 
@@ -34,17 +36,7 @@ The dashboard uses a single public Supabase client configured via environment va
 
 These must point to a project that has the Monoid schema installed (see the plan file in the extension repo).
 
-For the included public demo, RLS is disabled on:
-
-- `workspaces`
-- `repos`
-- `repo_versions`
-- `code_nodes`
-- `code_edges`
-- `organizations`
-- `org_docs`
-
-so reads/writes work with just the anon key.
+Session handling uses the same Supabase project; the anon key is used with cookies for auth. For the included public demo, RLS may be disabled on the graph/docs tables so that the extension and dashboard can read/write with the anon key; for self-hosted deployments you can enable RLS and scope data by user.
 
 ### Data model overview
 
@@ -86,9 +78,11 @@ The VS Code extension (`monoid-visualize`) writes graph data and ensures:
    - **“Monoid: Visualize All Code”** in VS Code.
 
 4. Open:
-   - `/` to see organizations, repos, and latest versions.
+   - `/login` to sign in or create an account (email/password).
+   - `/` to see organizations, repos, and latest versions (requires sign-in).
    - `/graph/[versionId]` to view the graph.
    - `/docs/[orgId]` to manage docs.
+   - `/share/[orgSlug]/[docSlug]` for public, read-only docs (no sign-in).
 
 ### What was removed for the POC
 
@@ -97,7 +91,7 @@ Compared to the internal version, this OSS dashboard intentionally omits:
 - Test result dashboards and test-coverage visualizations.
 - Roadmap UI and GitHub webhook ingestion.
 - MCP server endpoints for AI agents.
-- GitHub OAuth and any sign-in/sign-out flows.
+- GitHub OAuth (sign-in is email/password via Supabase Auth only).
 
-All remaining routes are public and driven purely by the Supabase anon client.
+Graph and docs routes require sign-in; share and login are the only public routes.
 

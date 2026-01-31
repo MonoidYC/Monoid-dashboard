@@ -36,22 +36,74 @@ export async function getOrganizations(): Promise<OrganizationRow[]> {
 export async function getOrganizationsWithRepos(): Promise<OrganizationWithRepos[]> {
   const supabase = createClient();
 
-  // Fetch all organizations
-  const { data: orgs, error: orgsError } = await supabase
-    .from("organizations")
-    .select("*")
-    .order("name", { ascending: true });
-
-  if (orgsError) {
-    console.error("Error fetching organizations:", orgsError);
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
     return [];
   }
 
-  // Fetch all repos with organization_id
-  const { data: repos, error: reposError } = await supabase
+  // Fetch organizations where user is a member (for dashboard listing)
+  // We explicitly filter by org_members to ensure users only see their orgs,
+  // not orgs with just published docs
+  const { data: orgMemberships, error: membershipsError } = await supabase
+    .from("org_members")
+    .select("organization_id")
+    .eq("user_id", user.id);
+
+  if (membershipsError) {
+    console.error("Error fetching org memberships:", membershipsError);
+    return [];
+  }
+
+  const orgIds = orgMemberships?.map(m => m.organization_id) || [];
+  
+  // Also get orgs created by the user (for backwards compatibility)
+  const { data: createdOrgs, error: createdOrgsError } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("created_by", user.id);
+
+  if (createdOrgsError) {
+    console.error("Error fetching created orgs:", createdOrgsError);
+  }
+
+  const createdOrgIds = createdOrgs?.map(o => o.id) || [];
+  const allOrgIds = [...new Set([...orgIds, ...createdOrgIds])];
+
+  // Fetch organizations where user is a member or creator
+  let orgs: OrganizationRow[] = [];
+  if (allOrgIds.length > 0) {
+    const { data, error: orgsError } = await supabase
+      .from("organizations")
+      .select("*")
+      .in("id", allOrgIds)
+      .order("name", { ascending: true });
+
+    if (orgsError) {
+      console.error("Error fetching organizations:", orgsError);
+      return [];
+    }
+    orgs = (data as OrganizationRow[]) || [];
+  }
+
+  // Fetch repos - RLS will filter to only show repos in orgs user has access to
+  // We'll filter repos in the application layer to only include those in user's orgs
+  const { data: allRepos, error: reposError } = await supabase
     .from("repos")
     .select("*")
     .order("name", { ascending: true });
+
+  if (reposError) {
+    console.error("Error fetching repos:", reposError);
+    return [];
+  }
+
+  // Filter repos to only those in user's organizations or unassigned
+  const repos = (allRepos || []).filter((repo) => {
+    const repoOrgId = (repo as any).organization_id;
+    return !repoOrgId || allOrgIds.includes(repoOrgId);
+  });
 
   if (reposError) {
     console.error("Error fetching repos:", reposError);
