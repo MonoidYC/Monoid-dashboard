@@ -38,9 +38,22 @@ function LoginForm() {
     setError(null);
     setLoading(true);
 
+    const redirectAfterAuth = () => {
+      if (isVSCodeWebview) {
+        const redirect = () => {
+          console.log("[Login] Navigating to / inside iframe");
+          window.location.replace("/");
+        };
+        setTimeout(redirect, 800);
+        window.parent.postMessage({ type: "authSuccess", redirectUrl: "/" }, "*");
+      } else {
+        window.location.href = "/";
+      }
+    };
+
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -48,8 +61,16 @@ function LoginForm() {
           },
         });
         if (error) throw error;
-        // Show success message for email confirmation
-        alert("Check your email to confirm your account!");
+
+        if (data.session) {
+          console.log("[Login] Sign up successful, user:", data.user?.email);
+          console.log("[Login] Is VS Code webview:", isVSCodeWebview);
+          redirectAfterAuth();
+        } else {
+          setIsSignUp(false);
+          setPassword("");
+          alert("Account created. You can sign in now.");
+        }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -64,22 +85,7 @@ function LoginForm() {
         
         console.log("[Login] Sign in successful, user:", data.user?.email);
         console.log("[Login] Is VS Code webview:", isVSCodeWebview);
-        
-        if (isVSCodeWebview) {
-          // In VS Code webview: navigate inside the iframe after a short delay
-          // so the session cookie is persisted before the request (avoids
-          // third-party cookie issues from parent-driven iframe reload)
-          const redirect = () => {
-            console.log("[Login] Navigating to / inside iframe");
-            window.location.replace("/");
-          };
-          setTimeout(redirect, 800);
-          // Also tell parent so it can update iframe URL if needed
-          window.parent.postMessage({ type: "authSuccess", redirectUrl: "/" }, "*");
-        } else {
-          // Regular browser: use full page reload
-          window.location.href = "/";
-        }
+        redirectAfterAuth();
       }
     } catch (err: any) {
       console.error("[Login] Error:", err);
