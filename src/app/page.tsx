@@ -14,7 +14,9 @@ import {
   Network,
   LogOut,
   Github,
+  Play,
   Plus,
+  RefreshCw,
   Search,
   X,
   ExternalLink,
@@ -254,6 +256,53 @@ export default function Home() {
       setGithubReposError(error?.message || "Failed to import repository.");
     } finally {
       setImportingRepo(null);
+    }
+  };
+
+  const handleAnalyzeRepo = async (repo: { id: string; owner: string; name: string; default_branch: string | null; organization_id: string | null; workspace_id: string }) => {
+    // Check if there's already an active job
+    const existing = activeJobs.get(repo.id);
+    if (existing && (existing.status === "pending" || existing.status === "running")) {
+      return; // Already in progress
+    }
+
+    try {
+      const response = await fetch("/api/github/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repo: {
+            id: 0, // Not used for existing repos
+            name: repo.name,
+            full_name: `${repo.owner}/${repo.name}`,
+            default_branch: repo.default_branch || "main",
+            owner: {
+              id: 0,
+              login: repo.owner,
+              avatar_url: null,
+            },
+          },
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        console.error("Failed to trigger analysis:", payload?.error);
+        return;
+      }
+
+      if (payload?.analysis?.job_id) {
+        setActiveJobs((prev) => {
+          const next = new Map(prev);
+          next.set(repo.id, {
+            job_id: payload.analysis.job_id,
+            status: payload.analysis.job_status || "pending",
+          });
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error("Failed to trigger analysis:", error);
     }
   };
 
@@ -529,6 +578,41 @@ export default function Home() {
                               </div>
 
                               <div className="flex items-center gap-2">
+                                {(() => {
+                                  const job = activeJobs.get(repo.id);
+                                  const isActive = job && (job.status === "pending" || job.status === "running");
+                                  if (!isActive) {
+                                    return (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAnalyzeRepo({
+                                            id: repo.id,
+                                            owner: repo.owner,
+                                            name: repo.name,
+                                            default_branch: repo.default_branch,
+                                            organization_id: repo.organization_id,
+                                            workspace_id: repo.workspace_id,
+                                          });
+                                        }}
+                                        className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-300 text-xs font-medium hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors flex items-center gap-1.5"
+                                      >
+                                        {versions.length > 0 ? (
+                                          <>
+                                            <RefreshCw className="w-3 h-3" />
+                                            Re-analyze
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Play className="w-3 h-3" />
+                                            Analyze
+                                          </>
+                                        )}
+                                      </button>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                                 {versions.length > 0 && (
                                   <Link
                                     href={`/graph/${versions[0].id}`}
