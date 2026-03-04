@@ -720,39 +720,101 @@ export default function DocEditorPage() {
 
 // Simple markdown renderer (basic implementation)
 function renderMarkdown(content: string): string {
-  let html = content
-    // Escape HTML
+  const escaped = content
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    // Headers
-    .replace(/^### (.*$)/gm, '<h3 class="text-lg font-semibold mt-6 mb-2">$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold mt-8 mb-3">$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mt-8 mb-4">$1</h1>')
-    // Bold and Italic
-    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    // Code blocks
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-white/5 rounded-lg p-4 overflow-x-auto my-4"><code>$2</code></pre>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1.5 py-0.5 rounded text-sm">$1</code>')
-    // Node links - make them clickable
-    .replace(
-      /\[\[Node:\s*([^\]]+)\]\]/g,
-      '<a href="#" data-node-name="$1" class="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 hover:text-violet-200 rounded text-sm font-medium cursor-pointer transition-colors no-underline">$1 →</a>'
-    )
-    // Lists
-    .replace(/^\s*[-*]\s+(.*)$/gm, '<li class="ml-4 my-1">$1</li>')
-    // Paragraphs
-    .replace(/\n\n/g, "</p><p class='my-4'>")
-    .replace(/\n/g, "<br>");
+    .replace(/>/g, "&gt;");
 
-  // Wrap list items
-  html = html.replace(
-    /(<li.*?<\/li>)+/g,
-    '<ul class="list-disc ml-4 my-4">$&</ul>'
-  );
+  const lines = escaped.split("\n");
+  const html: string[] = [];
+  let i = 0;
 
-  return `<p class="my-4">${html}</p>`;
+  const formatInline = (text: string): string =>
+    text
+      .replace(/`([^`]+)`/g, '<code class="bg-white/10 px-1.5 py-0.5 rounded text-sm">$1</code>')
+      .replace(
+        /\[\[Node:\s*([^\]]+)\]\]/g,
+        '<a href="#" data-node-name="$1" class="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 hover:text-violet-200 rounded text-sm font-medium cursor-pointer transition-colors no-underline">$1 →</a>'
+      )
+      .replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+
+    if (/^```/.test(line)) {
+      const codeLines: string[] = [];
+      i += 1;
+      while (i < lines.length && !/^```/.test(lines[i])) {
+        codeLines.push(lines[i]);
+        i += 1;
+      }
+      if (i < lines.length) i += 1;
+      html.push(
+        `<pre class="bg-white/5 rounded-lg p-4 overflow-x-auto my-4"><code>${codeLines.join("\n")}</code></pre>`
+      );
+      continue;
+    }
+
+    if (/^###\s+/.test(line)) {
+      html.push(
+        `<h3 class="text-lg font-semibold mt-6 mb-2">${formatInline(line.replace(/^###\s+/, ""))}</h3>`
+      );
+      i += 1;
+      continue;
+    }
+
+    if (/^##\s+/.test(line)) {
+      html.push(
+        `<h2 class="text-xl font-semibold mt-8 mb-3">${formatInline(line.replace(/^##\s+/, ""))}</h2>`
+      );
+      i += 1;
+      continue;
+    }
+
+    if (/^#\s+/.test(line)) {
+      html.push(
+        `<h1 class="text-2xl font-bold mt-8 mb-4">${formatInline(line.replace(/^#\s+/, ""))}</h1>`
+      );
+      i += 1;
+      continue;
+    }
+
+    if (/^\s*[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+        const item = lines[i].replace(/^\s*[-*]\s+/, "");
+        items.push(`<li class="my-0.5">${formatInline(item)}</li>`);
+        i += 1;
+      }
+      html.push(`<ul class="list-disc ml-6 my-2">${items.join("")}</ul>`);
+      continue;
+    }
+
+    const paragraphLines: string[] = [line];
+    i += 1;
+    while (i < lines.length) {
+      const nextLine = lines[i];
+      if (
+        !nextLine.trim() ||
+        /^```/.test(nextLine) ||
+        /^#{1,3}\s+/.test(nextLine) ||
+        /^\s*[-*]\s+/.test(nextLine)
+      ) {
+        break;
+      }
+      paragraphLines.push(nextLine);
+      i += 1;
+    }
+
+    html.push(`<p class="my-4">${formatInline(paragraphLines.join("<br>"))}</p>`);
+  }
+
+  return html.join("");
 }
