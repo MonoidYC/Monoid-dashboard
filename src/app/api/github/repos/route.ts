@@ -13,6 +13,7 @@ type GitHubRepo = {
   default_branch: string;
   html_url: string;
   description: string | null;
+  updated_at?: string;
   owner: {
     id: number;
     login: string;
@@ -20,10 +21,53 @@ type GitHubRepo = {
   };
 };
 
-function getGitHubErrorMessage(status: number): string {
+type GitHubOrg = {
+  id: number;
+  login: string;
+};
+
+function getGitHubErrorMessage(status: number, path?: string): string {
   if (status === 401) return "GitHub token expired. Sign out and sign in with GitHub again.";
   if (status === 403) return "GitHub API rate limit reached. Try again in a few minutes.";
-  return `GitHub API request failed (${status}).`;
+  return `GitHub API request failed (${status})${path ? ` for ${path}` : ""}.`;
+}
+
+async function githubFetchJson<T>(providerToken: string, path: string): Promise<T> {
+  const githubUrl = new URL(`https://api.github.com${path}`);
+  const githubResponse = await fetch(githubUrl.toString(), {
+    headers: {
+      Authorization: `Bearer ${providerToken}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    cache: "no-store",
+  });
+
+  if (!githubResponse.ok) {
+    throw new Error(getGitHubErrorMessage(githubResponse.status, path));
+  }
+
+  return (await githubResponse.json()) as T;
+}
+
+async function fetchPaginatedReposFromPath(
+  providerToken: string,
+  pathFactory: (page: number) => string,
+  maxPages = 5
+): Promise<GitHubRepo[]> {
+  const repos: GitHubRepo[] = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const path = pathFactory(page);
+    const pageRepos = await githubFetchJson<GitHubRepo[]>(providerToken, path);
+    repos.push(...pageRepos);
+
+    if (!Array.isArray(pageRepos) || pageRepos.length < 100) {
+      break;
+    }
+  }
+
+  return repos;
 }
 
 export async function GET(request: NextRequest) {
@@ -62,34 +106,42 @@ export async function GET(request: NextRequest) {
 
     const requestUrl = new URL(request.url);
     const q = requestUrl.searchParams.get("q")?.trim().toLowerCase() || "";
-    const perPage = 100;
-    const page = 1;
 
-    const githubUrl = new URL("https://api.github.com/user/repos");
-    githubUrl.searchParams.set("sort", "updated");
-    githubUrl.searchParams.set("direction", "desc");
-    githubUrl.searchParams.set("per_page", String(perPage));
-    githubUrl.searchParams.set("page", String(page));
-    githubUrl.searchParams.set("visibility", "all");
-    githubUrl.searchParams.set("affiliation", "owner,collaborator,organization_member");
+    // Pull repos accessible to the user (owner + collaborator + org repos).
+    // We paginate to avoid losing org repos when accounts have many repos.
+    const userRepos = await fetchPaginatedReposFromPath(
+      providerToken,
+      (page) =>
+        `/user/repos?sort=updated&direction=desc&per_page=100&page=${page}&visibility=all&type=all`,
+      10
+    );
 
-    const githubResponse = await fetch(githubUrl.toString(), {
-      headers: {
-        Authorization: `Bearer ${providerToken}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      cache: "no-store",
-    });
+    // Also query org repos explicitly; this helps in setups where /user/repos misses some org repos.
+    const orgs = await githubFetchJson<GitHubOrg[]>(
+      providerToken,
+      "/user/orgs?per_page=100&page=1"
+    ).catch(() => []);
 
-    if (!githubResponse.ok) {
-      return NextResponse.json(
-        { error: getGitHubErrorMessage(githubResponse.status) },
-        { status: githubResponse.status }
-      );
+    const orgRepos: GitHubRepo[] = [];
+    for (const org of orgs) {
+      try {
+        const reposForOrg = await fetchPaginatedReposFromPath(
+          providerToken,
+          (page) => `/orgs/${encodeURIComponent(org.login)}/repos?type=all&per_page=100&page=${page}`,
+          5
+        );
+        orgRepos.push(...reposForOrg);
+      } catch {
+        // Ignore org-specific failures (SSO restrictions, app restrictions, etc.) and keep partial results.
+      }
     }
 
-    const repos = (await githubResponse.json()) as GitHubRepo[];
+    const deduped = new Map<number, GitHubRepo>();
+    [...userRepos, ...orgRepos].forEach((repo) => deduped.set(repo.id, repo));
+    const repos = Array.from(deduped.values()).sort((a, b) =>
+      (b.updated_at || "").localeCompare(a.updated_at || "")
+    );
+
     const filtered = q
       ? repos.filter(
           (repo) =>
