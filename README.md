@@ -115,6 +115,5 @@ Compared to the internal version, this OSS dashboard intentionally omits:
 
 - Test result dashboards and test-coverage visualizations.
 - Roadmap UI and GitHub webhook ingestion.
-- MCP server endpoints for AI agents.
 
 Graph and docs routes require sign-in; share, login, and auth callback routes are public.

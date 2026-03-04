@@ -36,6 +36,7 @@ export async function updateSession(request: NextRequest) {
   const isGitHubAuthCallbackPage = request.nextUrl.pathname === "/auth/github/callback";
   const isSharePage = request.nextUrl.pathname.startsWith("/share/");
   const isPublishedDocsApi = request.nextUrl.pathname.startsWith("/api/docs/");
+  const isMcpApi = request.nextUrl.pathname.startsWith("/api/mcp");
   const isPublicAsset =
     request.nextUrl.pathname.startsWith("/_next") ||
     request.nextUrl.pathname.startsWith("/api/auth");
@@ -48,6 +49,7 @@ export async function updateSession(request: NextRequest) {
     !isGitHubAuthCallbackPage &&
     !isSharePage &&
     !isPublishedDocsApi &&
+    !isMcpApi &&
     !isPublicAsset
   ) {
     // Redirect to login if not authenticated (except for login/settings pages)
