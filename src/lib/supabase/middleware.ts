@@ -29,15 +29,23 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Allow access to login page, auth callback page, settings page, and public assets
+  // Allow access to login page, auth callback pages, settings page, and public assets
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isSettingsPage = request.nextUrl.pathname === "/settings";
   const isAuthCallbackPage = request.nextUrl.pathname === "/auth/callback";
+  const isGitHubAuthCallbackPage = request.nextUrl.pathname === "/auth/github/callback";
   const isPublicAsset =
     request.nextUrl.pathname.startsWith("/_next") ||
     request.nextUrl.pathname.startsWith("/api/auth");
 
-  if (!user && !isLoginPage && !isSettingsPage && !isAuthCallbackPage && !isPublicAsset) {
+  if (
+    !user &&
+    !isLoginPage &&
+    !isSettingsPage &&
+    !isAuthCallbackPage &&
+    !isGitHubAuthCallbackPage &&
+    !isPublicAsset
+  ) {
     // Redirect to login if not authenticated (except for login/settings pages)
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -53,4 +61,3 @@ export async function updateSession(request: NextRequest) {
 
   return supabaseResponse;
 }
-

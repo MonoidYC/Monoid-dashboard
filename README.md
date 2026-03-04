@@ -21,7 +21,24 @@ This dashboard focuses on **visualization only**: graph view, docs, and share. C
 
 ### Authentication
 
-The dashboard uses **Supabase Auth** with **email/password** sign-in and sign-up. Sign-in and sign-up are at `/login`. Middleware protects most routes: unauthenticated users are redirected to `/login`. The **share** route (`/share/[orgSlug]/[docSlug]`) and the login page are public; graph and docs routes require an authenticated session.
+The dashboard uses **Supabase Auth** with:
+
+- **email/password** sign-in and sign-up
+- **GitHub OAuth** sign-in
+
+Sign-in and sign-up are at `/login`. GitHub OAuth returns to `/auth/github/callback`. Middleware protects most routes: unauthenticated users are redirected to `/login`. The **share** route (`/share/[orgSlug]/[docSlug]`) and login/auth callback pages are public; graph and docs routes require an authenticated session.
+
+#### GitHub OAuth setup in Supabase
+
+1. In Supabase Dashboard, go to **Authentication > Providers > GitHub** and enable it.
+2. Create a GitHub OAuth App and set callback URL to:
+   - `https://<YOUR_SUPABASE_PROJECT_REF>.supabase.co/auth/v1/callback`
+3. Paste GitHub client ID/secret into Supabase GitHub provider settings.
+4. In Supabase **Authentication > URL Configuration**, add your app URLs:
+   - Site URL: `https://<your-vercel-domain>`
+   - Additional Redirect URLs:
+     - `https://<your-vercel-domain>/auth/github/callback`
+     - `http://localhost:3000/auth/github/callback` (for local dev)
 
 ### Tested frameworks & community
 
@@ -78,7 +95,7 @@ The VS Code extension (`monoid-visualize`) writes graph data and ensures:
    - **“Monoid: Visualize All Code”** in VS Code.
 
 4. Open:
-   - `/login` to sign in or create an account (email/password).
+   - `/login` to sign in (email/password or GitHub OAuth) or create an account.
    - `/` to see organizations, repos, and latest versions (requires sign-in).
    - `/graph/[versionId]` to view the graph.
    - `/docs/[orgId]` to manage docs.
@@ -91,7 +108,5 @@ Compared to the internal version, this OSS dashboard intentionally omits:
 - Test result dashboards and test-coverage visualizations.
 - Roadmap UI and GitHub webhook ingestion.
 - MCP server endpoints for AI agents.
-- GitHub OAuth (sign-in is email/password via Supabase Auth only).
 
-Graph and docs routes require sign-in; share and login are the only public routes.
-
+Graph and docs routes require sign-in; share, login, and auth callback routes are public.

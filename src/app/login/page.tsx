@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { Github } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
@@ -10,8 +11,8 @@ function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [isVSCodeWebview, setIsVSCodeWebview] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
   
@@ -32,6 +33,31 @@ function LoginForm() {
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [searchParams]);
+
+  const handleGitHubSignIn = async () => {
+    setError(null);
+    setOauthLoading(true);
+
+    try {
+      if (isVSCodeWebview) {
+        throw new Error("GitHub OAuth sign-in must be completed in a browser window, not inside VS Code.");
+      }
+
+      const redirectTo = `${window.location.origin}/auth/github/callback`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo,
+          scopes: "repo read:user read:org",
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("[Login] GitHub OAuth error:", err);
+      setError(err.message || "Failed to start GitHub sign-in");
+      setOauthLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +134,27 @@ function LoginForm() {
               : "Access your code visualizations"}
           </p>
         </div>
+        {!isSignUp && (
+          <>
+            <button
+              type="button"
+              onClick={handleGitHubSignIn}
+              disabled={loading || oauthLoading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Github className="w-4 h-4" />
+              {oauthLoading ? "Redirecting to GitHub..." : "Sign in with GitHub"}
+            </button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Or continue with email</span>
+              </div>
+            </div>
+          </>
+        )}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
             <div className="rounded-md bg-red-50 p-4">
@@ -152,7 +199,7 @@ function LoginForm() {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || oauthLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Loading..." : isSignUp ? "Sign up" : "Sign in"}
