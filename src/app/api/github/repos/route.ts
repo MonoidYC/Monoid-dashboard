@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     const userRepos = await fetchPaginatedReposFromPath(
       providerToken,
       (page) =>
-        `/user/repos?sort=updated&direction=desc&per_page=100&page=${page}&visibility=all&type=all`,
+        `/user/repos?sort=updated&direction=desc&per_page=100&page=${page}&affiliation=owner,collaborator,organization_member`,
       10
     );
 
