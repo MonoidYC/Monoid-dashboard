@@ -454,6 +454,16 @@ export default function Home() {
                 <Plus className="w-4 h-4" />
                 Import Repo
               </button>
+              <a
+                href="https://github.com/settings/applications"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium text-white/70 hover:text-white transition-colors"
+                title="Grant access to your GitHub organizations"
+              >
+                <Github className="w-4 h-4" />
+                Manage GitHub Access
+              </a>
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium text-white/70 hover:text-white transition-colors"
@@ -741,6 +751,24 @@ export default function Home() {
                   {importMessage}
                 </div>
               )}
+
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-200/80 flex items-start gap-2">
+                <Building2 className="w-4 h-4 text-amber-400/60 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-medium text-amber-200">Don&apos;t see your organization&apos;s repos?</span>{" "}
+                  You need to grant this app access to your org on GitHub.{" "}
+                  <a
+                    href="https://github.com/settings/applications"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 text-amber-300 hover:text-amber-100 transition-colors inline-flex items-center gap-1"
+                  >
+                    Manage access on GitHub
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  , then click <strong>Refresh</strong> above.
+                </div>
+              </div>
             </div>
 
             <div className="p-3 overflow-y-auto">
