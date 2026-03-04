@@ -45,9 +45,15 @@ function appendSlugSuffix(base: string, attempt: number): string {
   return `${sliced}${suffix}`;
 }
 
-async function triggerIngestionWebhook(repo: ImportedRepo, userId: string): Promise<{
+async function triggerIngestionWebhook(
+  repo: ImportedRepo,
+  userId: string,
+  githubToken?: string | null
+): Promise<{
   triggered: boolean;
   message: string;
+  job_id?: string;
+  job_status?: string;
 }> {
   const webhookUrl = process.env.MONOID_INGEST_WEBHOOK_URL;
   const webhookSecret = process.env.MONOID_INGEST_WEBHOOK_SECRET;
@@ -71,6 +77,7 @@ async function triggerIngestionWebhook(repo: ImportedRepo, userId: string): Prom
         event: "repo.imported",
         repo,
         user_id: userId,
+        github_token: githubToken || null,
         requested_at: new Date().toISOString(),
       }),
       cache: "no-store",
@@ -84,9 +91,14 @@ async function triggerIngestionWebhook(repo: ImportedRepo, userId: string): Prom
       };
     }
 
+    // Parse job_id from Edge Function response
+    const result = await response.json().catch(() => ({}));
+
     return {
       triggered: true,
       message: "Repository imported and ingestion was triggered automatically.",
+      job_id: result.job_id,
+      job_status: result.status,
     };
   } catch (error: any) {
     return {
@@ -107,6 +119,12 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Get the user's GitHub OAuth provider_token for private repo access
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const githubToken = session?.provider_token ?? null;
 
     const body = (await request.json()) as ImportRequestBody;
     const repo = body.repo;
@@ -201,7 +219,8 @@ export async function POST(request: NextRequest) {
           organization_id: organization.id,
           workspace_id: existingRepo.workspace_id,
         },
-        user.id
+        user.id,
+        githubToken
       );
 
       return NextResponse.json({
@@ -290,7 +309,8 @@ export async function POST(request: NextRequest) {
         organization_id: newRepo.organization_id || null,
         workspace_id: newRepo.workspace_id,
       },
-      user.id
+      user.id,
+      githubToken
     );
 
     return NextResponse.json({

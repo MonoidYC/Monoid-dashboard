@@ -1,0 +1,23 @@
+{
+  "name": "@monoid/ingest-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Background worker that claims ingest_jobs, clones repos, runs analyzer-core, and writes results to Supabase",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@monoid/analyzer-core": "file:../../Monoid-Extension/packages/analyzer-core",
+    "@supabase/supabase-js": "^2.49.2",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.x",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}

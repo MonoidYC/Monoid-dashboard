@@ -140,6 +140,98 @@ export type Database = {
           },
         ]
       }
+      ingest_jobs: {
+        Row: {
+          attempt_count: number
+          branch: string
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          github_token: string | null
+          id: string
+          max_attempts: number
+          name: string
+          organization_id: string | null
+          owner: string
+          repo_id: string
+          repo_version_id: string | null
+          requested_by: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          branch?: string
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          github_token?: string | null
+          id?: string
+          max_attempts?: number
+          name: string
+          organization_id?: string | null
+          owner: string
+          repo_id: string
+          repo_version_id?: string | null
+          requested_by: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          attempt_count?: number
+          branch?: string
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          github_token?: string | null
+          id?: string
+          max_attempts?: number
+          name?: string
+          organization_id?: string | null
+          owner?: string
+          repo_id?: string
+          repo_version_id?: string | null
+          requested_by?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingest_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_jobs_repo_id_fkey"
+            columns: ["repo_id"]
+            isOneToOne: false
+            referencedRelation: "repos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_jobs_repo_version_id_fkey"
+            columns: ["repo_version_id"]
+            isOneToOne: false
+            referencedRelation: "repo_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_jobs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_docs: {
         Row: {
           content: string
@@ -622,12 +714,53 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_ingest_job: {
+        Args: never
+        Returns: {
+          attempt_count: number
+          branch: string
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          github_token: string | null
+          id: string
+          max_attempts: number
+          name: string
+          organization_id: string | null
+          owner: string
+          repo_id: string
+          repo_version_id: string | null
+          requested_by: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          workspace_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ingest_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_downstream_nodes: {
         Args: { p_max_depth?: number; p_node_id: string }
         Returns: {
           depth: number
           node_id: string
           path: string[]
+        }[]
+      }
+      get_org_for_published_doc: {
+        Args: { org_slug: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          description: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
         }[]
       }
       github_permalink: {
@@ -641,7 +774,20 @@ export type Database = {
         }
         Returns: string
       }
+      org_has_no_members: { Args: { org_id: string }; Returns: boolean }
       user_has_workspace_access: { Args: { ws_id: string }; Returns: boolean }
+      user_is_org_admin: {
+        Args: { check_user_id?: string; org_id: string }
+        Returns: boolean
+      }
+      user_is_org_member: {
+        Args: { check_user_id?: string; org_id: string }
+        Returns: boolean
+      }
+      user_is_org_owner: {
+        Args: { check_user_id?: string; org_id: string }
+        Returns: boolean
+      }
       whoami: { Args: never; Returns: Json }
     }
     Enums: {

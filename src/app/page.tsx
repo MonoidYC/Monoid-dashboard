@@ -55,6 +55,11 @@ export default function Home() {
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [justImportedRepos, setJustImportedRepos] = useState<Set<string>>(new Set());
 
+  // Ingestion job tracking: repoId -> { job_id, status, repo_version_id }
+  const [activeJobs, setActiveJobs] = useState<
+    Map<string, { job_id: string; status: string; repo_version_id?: string | null; error?: string | null }>
+  >(new Map());
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -89,9 +94,83 @@ export default function Home() {
     }
   }, []);
 
+  // Load existing active ingest jobs on mount
+  type IngestJobRow = { id: string; repo_id: string; status: string; repo_version_id: string | null; error: string | null };
+  const loadActiveJobs = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from("ingest_jobs")
+        .select("id, repo_id, status, repo_version_id, error")
+        .or("status.eq.pending,status.eq.running");
+
+      const jobs = (data ?? []) as unknown as IngestJobRow[];
+
+      if (jobs.length > 0) {
+        setActiveJobs((prev) => {
+          const next = new Map(prev);
+          for (const job of jobs) {
+            next.set(job.repo_id, {
+              job_id: job.id,
+              status: job.status,
+              repo_version_id: job.repo_version_id,
+              error: job.error,
+            });
+          }
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load active jobs:", err);
+    }
+  }, [supabase]);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    loadActiveJobs();
+  }, [loadData, loadActiveJobs]);
+
+  // Poll active ingestion jobs every 3 seconds
+  useEffect(() => {
+    const jobsToPoll = Array.from(activeJobs.entries()).filter(
+      ([, job]) => job.status === "pending" || job.status === "running"
+    );
+    if (jobsToPoll.length === 0) return;
+
+    const interval = setInterval(async () => {
+      for (const [repoId, job] of jobsToPoll) {
+        try {
+          const { data: rawData, error: queryError } = await supabase
+            .from("ingest_jobs")
+            .select("id, status, repo_version_id, error")
+            .eq("id", job.job_id)
+            .single();
+
+          if (queryError || !rawData) continue;
+          const row = rawData as unknown as IngestJobRow;
+
+          setActiveJobs((prev) => {
+            const next = new Map(prev);
+            next.set(repoId, {
+              job_id: row.id,
+              status: row.status,
+              repo_version_id: row.repo_version_id,
+              error: row.error,
+            });
+            return next;
+          });
+
+          // If succeeded, refresh data to show the new version
+          if (row.status === "succeeded") {
+            await loadData();
+          }
+        } catch (err) {
+          console.error(`Error polling job ${job.job_id}:`, err);
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeJobs, supabase, loadData]);
 
   const fetchGitHubRepos = useCallback(async () => {
     setGithubReposLoading(true);
@@ -156,6 +235,18 @@ export default function Home() {
           ? payload.analysis.message
           : 'Run "Monoid: Visualize All Code" in VS Code to ingest graph data.';
       setImportMessage(`${base} ${analysisMessage}`);
+
+      // Track ingestion job if one was created
+      if (payload?.analysis?.job_id && payload?.repo?.id) {
+        setActiveJobs((prev) => {
+          const next = new Map(prev);
+          next.set(payload.repo.id, {
+            job_id: payload.analysis.job_id,
+            status: payload.analysis.job_status || "pending",
+          });
+          return next;
+        });
+      }
 
       await loadData();
     } catch (error: any) {
@@ -231,6 +322,55 @@ export default function Home() {
     return keys;
   }, [orgData]);
 
+  const getJobStatusBadge = useCallback(
+    (repoId: string) => {
+      const job = activeJobs.get(repoId);
+      if (!job) return null;
+
+      const statusConfig: Record<string, { label: string; color: string; animate?: boolean }> = {
+        pending: {
+          label: "Queued",
+          color: "bg-amber-500/10 border-amber-500/20 text-amber-300",
+          animate: true,
+        },
+        running: {
+          label: "Analyzing",
+          color: "bg-blue-500/10 border-blue-500/20 text-blue-300",
+          animate: true,
+        },
+        succeeded: {
+          label: "Ready",
+          color: "bg-emerald-500/10 border-emerald-500/20 text-emerald-300",
+        },
+        failed: {
+          label: "Failed",
+          color: "bg-red-500/10 border-red-500/20 text-red-300",
+        },
+      };
+
+      const config = statusConfig[job.status] || statusConfig.pending;
+
+      return (
+        <span
+          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] uppercase tracking-wide font-medium ${config.color}`}
+        >
+          {config.animate && <Loader2 className="w-3 h-3 animate-spin" />}
+          {config.label}
+          {job.status === "succeeded" && job.repo_version_id && (
+            <Link
+              href={`/graph/${job.repo_version_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="ml-1 underline text-emerald-200 hover:text-emerald-100"
+            >
+              View Graph
+            </Link>
+          )}
+        </span>
+      );
+    },
+    [activeJobs]
+  );
+
   const filteredGitHubRepos = useMemo(() => {
     const query = repoSearchQuery.trim().toLowerCase();
     if (!query) return githubRepos;
@@ -285,8 +425,11 @@ export default function Home() {
         ) : orgData.length === 0 ? (
           <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-8 text-center">
             <p className="text-gray-400">
-              No graphs ingested yet. Run the VS Code extension command{" "}
-              <span className="font-mono text-gray-300">Monoid: Visualize All Code</span>.
+              No repositories imported yet. Click{" "}
+              <button onClick={openRepoPicker} className="text-violet-300 hover:text-violet-200 underline underline-offset-2">
+                Import Repo
+              </button>{" "}
+              to add a GitHub repository and automatically analyze it.
             </p>
           </div>
         ) : (
@@ -370,8 +513,11 @@ export default function Home() {
                                   <FolderGit2 className="w-4 h-4 text-blue-300/70" />
                                 </div>
                                 <div className="text-left">
-                                  <div className="font-medium text-white/80">
-                                    {repo.owner}/{repo.name}
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-white/80">
+                                      {repo.owner}/{repo.name}
+                                    </span>
+                                    {getJobStatusBadge(repo.id)}
                                   </div>
                                   <div className="text-xs text-gray-500 mt-0.5">
                                     {versions.length} {versions.length === 1 ? "commit" : "commits"}
