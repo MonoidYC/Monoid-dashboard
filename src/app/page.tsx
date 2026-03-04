@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,10 +13,31 @@ import {
   Loader2,
   Network,
   LogOut,
+  Github,
+  Plus,
+  Search,
+  X,
+  ExternalLink,
+  Lock,
 } from "lucide-react";
 import { getOrganizationsWithRepos } from "@/lib/graph/queries";
 import type { OrganizationWithRepos, RepoWithVersions, RepoVersionRow } from "@/lib/graph/types";
 import { createClient } from "@/lib/supabase/client";
+
+type GitHubRepo = {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  default_branch: string;
+  html_url: string;
+  description: string | null;
+  owner: {
+    id: number;
+    login: string;
+    avatar_url: string | null;
+  };
+};
 
 export default function Home() {
   const router = useRouter();
@@ -25,6 +46,14 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set());
+  const [isRepoPickerOpen, setIsRepoPickerOpen] = useState(false);
+  const [githubRepos, setGithubRepos] = useState<GitHubRepo[]>([]);
+  const [githubReposLoading, setGithubReposLoading] = useState(false);
+  const [githubReposError, setGithubReposError] = useState<string | null>(null);
+  const [repoSearchQuery, setRepoSearchQuery] = useState("");
+  const [importingRepo, setImportingRepo] = useState<string | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [justImportedRepos, setJustImportedRepos] = useState<Set<string>>(new Set());
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -32,36 +61,107 @@ export default function Home() {
     router.refresh();
   };
 
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const data = await getOrganizationsWithRepos();
-        setOrgData(data);
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getOrganizationsWithRepos();
+      setOrgData(data);
 
-        // Auto-expand orgs and repos with versions
-        const orgsToExpand = new Set<string>();
-        const reposToExpand = new Set<string>();
-        for (const org of data) {
-          if (org.repos.length > 0) {
-            orgsToExpand.add(org.organization.id);
-            for (const repo of org.repos) {
-              if (repo.versions.length > 0) {
-                reposToExpand.add(repo.repo.id);
-              }
+      // Auto-expand orgs and repos with versions
+      const orgsToExpand = new Set<string>();
+      const reposToExpand = new Set<string>();
+      for (const org of data) {
+        if (org.repos.length > 0) {
+          orgsToExpand.add(org.organization.id);
+          for (const repo of org.repos) {
+            if (repo.versions.length > 0) {
+              reposToExpand.add(repo.repo.id);
             }
           }
         }
-        setExpandedOrgs(orgsToExpand);
-        setExpandedRepos(reposToExpand);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      } finally {
-        setIsLoading(false);
       }
+      setExpandedOrgs(orgsToExpand);
+      setExpandedRepos(reposToExpand);
+    } catch (error) {
+      console.error("Failed to load data:", error);
+    } finally {
+      setIsLoading(false);
     }
-    loadData();
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const fetchGitHubRepos = useCallback(async () => {
+    setGithubReposLoading(true);
+    setGithubReposError(null);
+
+    try {
+      const response = await fetch("/api/github/repos", { cache: "no-store" });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to load GitHub repositories.");
+      }
+
+      const repos = Array.isArray(payload?.repos) ? (payload.repos as GitHubRepo[]) : [];
+      setGithubRepos(repos);
+    } catch (error: any) {
+      console.error("Failed to fetch GitHub repos:", error);
+      setGithubReposError(error?.message || "Failed to load GitHub repositories.");
+    } finally {
+      setGithubReposLoading(false);
+    }
+  }, []);
+
+  const openRepoPicker = async () => {
+    setIsRepoPickerOpen(true);
+    setImportMessage(null);
+    if (githubRepos.length === 0) {
+      await fetchGitHubRepos();
+    }
+  };
+
+  const handleImportRepo = async (repo: GitHubRepo) => {
+    setGithubReposError(null);
+    setImportMessage(null);
+    setImportingRepo(repo.full_name);
+
+    try {
+      const response = await fetch("/api/github/import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ repo }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to import repository.");
+      }
+
+      setJustImportedRepos((prev) => {
+        const next = new Set(prev);
+        next.add(repo.full_name.toLowerCase());
+        return next;
+      });
+
+      if (payload?.created) {
+        setImportMessage(`Imported ${repo.full_name}. Run "Monoid: Visualize All Code" in VS Code to ingest graph data.`);
+      } else {
+        setImportMessage(`${repo.full_name} is already linked in your dashboard.`);
+      }
+
+      await loadData();
+    } catch (error: any) {
+      console.error("Failed to import repo:", error);
+      setGithubReposError(error?.message || "Failed to import repository.");
+    } finally {
+      setImportingRepo(null);
+    }
+  };
 
   const toggleOrg = (orgId: string) => {
     setExpandedOrgs((prev) => {
@@ -118,6 +218,28 @@ export default function Home() {
     };
   }, []);
 
+  const existingRepoKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const org of orgData) {
+      for (const repoData of org.repos) {
+        keys.add(`${repoData.repo.owner}/${repoData.repo.name}`.toLowerCase());
+      }
+    }
+    return keys;
+  }, [orgData]);
+
+  const filteredGitHubRepos = useMemo(() => {
+    const query = repoSearchQuery.trim().toLowerCase();
+    if (!query) return githubRepos;
+    return githubRepos.filter((repo) => {
+      return (
+        repo.full_name.toLowerCase().includes(query) ||
+        repo.name.toLowerCase().includes(query) ||
+        (repo.description || "").toLowerCase().includes(query)
+      );
+    });
+  }, [githubRepos, repoSearchQuery]);
+
   return (
     <main className="min-h-screen bg-[#08080a] text-white">
       <header className="border-b border-white/5 bg-[#0c0c0e]">
@@ -132,13 +254,22 @@ export default function Home() {
                 <p className="text-sm text-gray-400">Visualize your codebase as a graph.</p>
               </div>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium text-white/70 hover:text-white transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign out
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openRepoPicker}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-sm font-medium text-violet-200 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Import Repo
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium text-white/70 hover:text-white transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -318,7 +449,136 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {isRepoPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close repo picker"
+            className="absolute inset-0 bg-black/75"
+            onClick={() => setIsRepoPickerOpen(false)}
+          />
+
+          <div className="relative w-full max-w-3xl max-h-[88vh] rounded-2xl bg-[#0f0f12] border border-white/10 overflow-hidden flex flex-col">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Import from GitHub</h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Select a repository to add it to your Monoid dashboard.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsRepoPickerOpen(false)}
+                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 border-b border-white/10 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 relative">
+                  <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search repositories..."
+                    value={repoSearchQuery}
+                    onChange={(e) => setRepoSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                  />
+                </div>
+                <button
+                  onClick={fetchGitHubRepos}
+                  disabled={githubReposLoading}
+                  className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white/80 disabled:opacity-50"
+                >
+                  {githubReposLoading ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
+
+              {githubReposError && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  {githubReposError}
+                </div>
+              )}
+
+              {importMessage && (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                  {importMessage}
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 overflow-y-auto">
+              {githubReposLoading ? (
+                <div className="py-16 flex items-center justify-center text-gray-400">
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Loading repositories...
+                </div>
+              ) : filteredGitHubRepos.length === 0 ? (
+                <div className="py-16 text-center text-gray-400 text-sm">
+                  No repositories found.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredGitHubRepos.map((repo) => {
+                    const repoKey = repo.full_name.toLowerCase();
+                    const isExisting = existingRepoKeys.has(repoKey) || justImportedRepos.has(repoKey);
+                    const isImporting = importingRepo === repo.full_name;
+
+                    return (
+                      <div
+                        key={repo.id}
+                        className="rounded-xl bg-white/[0.02] border border-white/[0.08] p-4 flex items-start justify-between gap-4"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Github className="w-4 h-4 text-white/60 flex-shrink-0" />
+                            <div className="font-medium text-white/90 truncate">{repo.full_name}</div>
+                            {repo.private && (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] uppercase tracking-wide flex items-center gap-1">
+                                <Lock className="w-3 h-3" />
+                                Private
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                            <span>Default branch: {repo.default_branch || "main"}</span>
+                            <span className="text-gray-700">·</span>
+                            <a
+                              href={repo.html_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
+                            >
+                              View on GitHub
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                          {repo.description && (
+                            <div className="text-sm text-gray-300/80 mt-2 line-clamp-2">
+                              {repo.description}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => handleImportRepo(repo)}
+                          disabled={isExisting || isImporting}
+                          className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70 border-violet-500/30 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+                        >
+                          {isExisting ? "Added" : isImporting ? "Importing..." : "Import"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
-

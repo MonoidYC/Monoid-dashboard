@@ -19,6 +19,9 @@ This dashboard focuses on **visualization only**: graph view, docs, and share. C
 - **Share view**: `/share/[orgSlug]/[docSlug]`  
   Public, read-only view of published docs (no sign-in required).
 
+- **Repo import**: from `/` via **Import Repo** (GitHub OAuth required)  
+  Lists your GitHub repositories and creates matching `organization`/`workspace`/`repo` rows for ingestion.
+
 ### Authentication
 
 The dashboard uses **Supabase Auth** with:
