@@ -54,6 +54,11 @@ The dashboard uses a single public Supabase client configured via environment va
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
+Optional auto-ingestion webhook configuration (for auto-analyze on repo import):
+
+- `MONOID_INGEST_WEBHOOK_URL` - server endpoint that can clone/analyze the repo and write graph rows.
+- `MONOID_INGEST_WEBHOOK_SECRET` - shared secret sent as `x-monoid-signature`.
+
 These must point to a project that has the Monoid schema installed (see the plan file in the extension repo).
 
 Session handling uses the same Supabase project; the anon key is used with cookies for auth. For the included public demo, RLS may be disabled on the graph/docs tables so that the extension and dashboard can read/write with the anon key; for self-hosted deployments you can enable RLS and scope data by user.

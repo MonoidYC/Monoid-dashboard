@@ -19,6 +19,15 @@ type ImportRequestBody = {
   };
 };
 
+type ImportedRepo = {
+  id: string;
+  owner: string;
+  name: string;
+  default_branch: string | null;
+  organization_id: string | null;
+  workspace_id: string;
+};
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -34,6 +43,57 @@ function appendSlugSuffix(base: string, attempt: number): string {
   const maxBaseLength = 48 - suffix.length;
   const sliced = base.slice(0, Math.max(8, maxBaseLength));
   return `${sliced}${suffix}`;
+}
+
+async function triggerIngestionWebhook(repo: ImportedRepo, userId: string): Promise<{
+  triggered: boolean;
+  message: string;
+}> {
+  const webhookUrl = process.env.MONOID_INGEST_WEBHOOK_URL;
+  const webhookSecret = process.env.MONOID_INGEST_WEBHOOK_SECRET;
+
+  if (!webhookUrl) {
+    return {
+      triggered: false,
+      message:
+        "Repository imported, but no ingestion worker is configured. Set MONOID_INGEST_WEBHOOK_URL to auto-analyze on import.",
+    };
+  }
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(webhookSecret ? { "x-monoid-signature": webhookSecret } : {}),
+      },
+      body: JSON.stringify({
+        event: "repo.imported",
+        repo,
+        user_id: userId,
+        requested_at: new Date().toISOString(),
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const payload = await response.text().catch(() => "");
+      return {
+        triggered: false,
+        message: `Repository imported, but ingestion webhook failed (${response.status})${payload ? `: ${payload}` : "."}`,
+      };
+    }
+
+    return {
+      triggered: true,
+      message: "Repository imported and ingestion was triggered automatically.",
+    };
+  } catch (error: any) {
+    return {
+      triggered: false,
+      message: `Repository imported, but ingestion webhook failed: ${error?.message || "Unknown error."}`,
+    };
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -131,9 +191,23 @@ export async function POST(request: NextRequest) {
           .update({ organization_id: organization.id })
           .eq("id", existingRepo.id);
       }
+
+      const analysis = await triggerIngestionWebhook(
+        {
+          id: existingRepo.id,
+          owner: existingRepo.owner,
+          name: existingRepo.name,
+          default_branch: existingRepo.default_branch || null,
+          organization_id: organization.id,
+          workspace_id: existingRepo.workspace_id,
+        },
+        user.id
+      );
+
       return NextResponse.json({
         created: false,
         repo: existingRepo,
+        analysis,
       });
     }
 
@@ -207,9 +281,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const analysis = await triggerIngestionWebhook(
+      {
+        id: newRepo.id,
+        owner: newRepo.owner,
+        name: newRepo.name,
+        default_branch: newRepo.default_branch || null,
+        organization_id: newRepo.organization_id || null,
+        workspace_id: newRepo.workspace_id,
+      },
+      user.id
+    );
+
     return NextResponse.json({
       created: true,
       repo: newRepo,
+      analysis,
     });
   } catch (error: any) {
     console.error("[GitHub Import API] Error:", error);

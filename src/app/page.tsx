@@ -148,11 +148,14 @@ export default function Home() {
         return next;
       });
 
-      if (payload?.created) {
-        setImportMessage(`Imported ${repo.full_name}. Run "Monoid: Visualize All Code" in VS Code to ingest graph data.`);
-      } else {
-        setImportMessage(`${repo.full_name} is already linked in your dashboard.`);
-      }
+      const base = payload?.created
+        ? `Imported ${repo.full_name}.`
+        : `${repo.full_name} is already linked in your dashboard.`;
+      const analysisMessage =
+        typeof payload?.analysis?.message === "string"
+          ? payload.analysis.message
+          : 'Run "Monoid: Visualize All Code" in VS Code to ingest graph data.';
+      setImportMessage(`${base} ${analysisMessage}`);
 
       await loadData();
     } catch (error: any) {
