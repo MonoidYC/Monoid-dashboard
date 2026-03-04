@@ -22,6 +22,11 @@ function LoginForm() {
     if (searchParams.get("vscode") === "true") {
       setIsVSCodeWebview(true);
     }
+
+    const oauthError = searchParams.get("error");
+    if (oauthError) {
+      setError(oauthError);
+    }
     
     // Also listen for message from parent webview
     const handleMessage = (event: MessageEvent) => {
