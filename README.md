@@ -19,6 +19,9 @@ This dashboard focuses on **visualization only**: graph view, docs, and share. C
 - **Share view**: `/share/[orgSlug]/[docSlug]`  
   Public, read-only view of published docs (no sign-in required).
 
+- **MCP docs API**: `/api/mcp/[orgSlug]`  
+  MCP server for published docs with read tools (`list_docs`, `get_doc`, `search_docs`) and optional write tools (`create_doc`, `update_doc`) protected by a write token header.
+
 - **Repo import**: from `/` via **Import Repo** (GitHub OAuth required)  
   Lists your GitHub repositories and creates matching `organization`/`workspace`/`repo` rows for ingestion.
 
@@ -29,7 +32,7 @@ The dashboard uses **Supabase Auth** with:
 - **email/password** sign-in and sign-up
 - **GitHub OAuth** sign-in
 
-Sign-in and sign-up are at `/login`. GitHub OAuth returns to `/auth/github/callback`. Middleware protects most routes: unauthenticated users are redirected to `/login`. The **share** route (`/share/[orgSlug]/[docSlug]`) and login/auth callback pages are public; graph and docs routes require an authenticated session.
+Sign-in and sign-up are at `/login`. GitHub OAuth returns to `/auth/github/callback`. Middleware protects most routes: unauthenticated users are redirected to `/login`. The **share** route (`/share/[orgSlug]/[docSlug]`), published docs API (`/api/docs/...`), MCP API (`/api/mcp...`), and login/auth callback pages are public; graph and docs routes require an authenticated session.
 
 #### GitHub OAuth setup in Supabase
 
@@ -58,6 +61,7 @@ Optional auto-ingestion webhook configuration (for auto-analyze on repo import):
 
 - `MONOID_INGEST_WEBHOOK_URL` - server endpoint that can clone/analyze the repo and write graph rows.
 - `MONOID_INGEST_WEBHOOK_SECRET` - shared secret sent as `x-monoid-signature`.
+- `MONOID_MCP_WRITE_TOKEN` - optional token required by MCP write tools (`create_doc`, `update_doc`) via `x-monoid-mcp-write-token` header.
 
 These must point to a project that has the Monoid schema installed (see the plan file in the extension repo).
 
@@ -116,4 +120,4 @@ Compared to the internal version, this OSS dashboard intentionally omits:
 - Test result dashboards and test-coverage visualizations.
 - Roadmap UI and GitHub webhook ingestion.
 
-Graph and docs routes require sign-in; share, login, and auth callback routes are public.
+Graph and docs routes require sign-in; share/docs/MCP public endpoints and login/auth callback routes are public.

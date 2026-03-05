@@ -3,6 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const writeToken = process.env.MONOID_MCP_WRITE_TOKEN?.trim() || null;
+const STORAGE_BUCKET = "docs";
+const WRITE_TOOL_NAMES = new Set(["create_doc", "update_doc"]);
+
+type ToolResponse = {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+};
 
 const TOOLS = [
   {
@@ -42,6 +50,80 @@ const TOOLS = [
       required: ["query"],
     },
   },
+  {
+    name: "create_doc",
+    description:
+      "Create a new doc in this organization (requires x-monoid-mcp-write-token header)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Document title",
+        },
+        content: {
+          type: "string",
+          description: "Markdown content",
+        },
+        doc_slug: {
+          type: "string",
+          description: "Optional slug; if omitted, derived from title",
+        },
+        description: {
+          type: "string",
+          description: "Optional short description",
+        },
+        is_published: {
+          type: "boolean",
+          description: "Optional publish flag (default false)",
+        },
+        repo_id: {
+          type: "string",
+          description: "Optional repo ID to associate",
+        },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "update_doc",
+    description:
+      "Update an existing doc by slug (requires x-monoid-mcp-write-token header)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        doc_slug: {
+          type: "string",
+          description: "Existing document slug to update",
+        },
+        new_doc_slug: {
+          type: "string",
+          description: "Optional new slug",
+        },
+        title: {
+          type: "string",
+          description: "Optional new title",
+        },
+        content: {
+          type: "string",
+          description: "Optional new markdown content",
+        },
+        description: {
+          type: "string",
+          description: "Optional new description",
+        },
+        is_published: {
+          type: "boolean",
+          description: "Optional publish flag",
+        },
+        repo_id: {
+          type: "string",
+          description: "Optional repo ID (set null to clear)",
+        },
+      },
+      required: ["doc_slug"],
+    },
+  },
 ];
 
 type RpcRequest = {
@@ -50,6 +132,279 @@ type RpcRequest = {
   method: string;
   params?: unknown;
 };
+
+function textResult(text: string): ToolResponse {
+  return { content: [{ type: "text", text }] };
+}
+
+function errorResult(text: string): ToolResponse {
+  return { content: [{ type: "text", text }], isError: true };
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function parseBooleanInput(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+    return null;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return null;
+}
+
+async function saveDocToStorage(orgId: string, slug: string, content: string) {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const filePath = `${orgId}/${slug}.md`;
+  const blob = new Blob([content], { type: "text/markdown" });
+
+  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(filePath, blob, {
+    contentType: "text/markdown",
+    upsert: true,
+  });
+
+  if (error) {
+    return `Storage warning: ${error.message}`;
+  }
+  return null;
+}
+
+async function validateRepoId(repoId: string, orgId: string): Promise<string | null> {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const { data, error } = await supabase
+    .from("repos")
+    .select("id")
+    .eq("id", repoId)
+    .eq("organization_id", orgId)
+    .single();
+
+  if (error || !data) {
+    return `Repository "${repoId}" not found in this organization`;
+  }
+
+  return null;
+}
+
+async function createDocTool(
+  orgId: string,
+  orgSlug: string,
+  orgName: string,
+  args: Record<string, unknown>
+): Promise<ToolResponse> {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+  const title = String(args.title || "").trim();
+  if (!title) {
+    return errorResult("title is required");
+  }
+
+  const providedSlug = String(args.doc_slug || "").trim();
+  const generatedSlug = slugify(title);
+  const docSlug = (providedSlug || generatedSlug).trim();
+
+  if (!docSlug) {
+    return errorResult("Could not generate a valid slug. Provide doc_slug explicitly.");
+  }
+
+  const content = typeof args.content === "string" ? args.content : "";
+  const description =
+    args.description === undefined
+      ? null
+      : args.description === null
+        ? null
+        : String(args.description);
+
+  const isPublishedInput = args.is_published;
+  const isPublished =
+    isPublishedInput === undefined ? false : parseBooleanInput(isPublishedInput);
+  if (isPublished === null && isPublishedInput !== undefined) {
+    return errorResult("is_published must be true/false");
+  }
+
+  let repoId: string | null = null;
+  if (args.repo_id !== undefined && args.repo_id !== null && String(args.repo_id).trim()) {
+    repoId = String(args.repo_id).trim();
+    const repoError = await validateRepoId(repoId, orgId);
+    if (repoError) return errorResult(repoError);
+  }
+
+  const { data: existing } = await supabase
+    .from("org_docs")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("slug", docSlug)
+    .single();
+
+  if (existing) {
+    return errorResult(
+      `Document slug "${docSlug}" already exists. Use update_doc or choose a different slug.`
+    );
+  }
+
+  const { data: created, error: createError } = await supabase
+    .from("org_docs")
+    .insert({
+      organization_id: orgId,
+      title,
+      slug: docSlug,
+      content,
+      description,
+      repo_id: repoId,
+      is_published: isPublished,
+    })
+    .select("id, title, slug, is_published")
+    .single();
+
+  if (createError || !created) {
+    return errorResult(`Error creating doc: ${createError?.message || "unknown error"}`);
+  }
+
+  const storageWarning = await saveDocToStorage(orgId, docSlug, content);
+  const publicUrl = `https://monoid-dashboard.vercel.app/share/${orgSlug}/${docSlug}`;
+
+  return textResult(
+    `Created doc "${created.title}" (slug: ${created.slug}) in ${orgName}.\n` +
+      `Published: ${created.is_published ? "yes" : "no"}\n` +
+      `Share URL: ${publicUrl}` +
+      (storageWarning ? `\n${storageWarning}` : "")
+  );
+}
+
+async function updateDocTool(
+  orgId: string,
+  orgSlug: string,
+  orgName: string,
+  args: Record<string, unknown>
+): Promise<ToolResponse> {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const targetSlug = String(args.doc_slug || "").trim();
+
+  if (!targetSlug) {
+    return errorResult("doc_slug is required");
+  }
+
+  const hasTitle = Object.prototype.hasOwnProperty.call(args, "title");
+  const hasContent = Object.prototype.hasOwnProperty.call(args, "content");
+  const hasDescription = Object.prototype.hasOwnProperty.call(args, "description");
+  const hasPublished = Object.prototype.hasOwnProperty.call(args, "is_published");
+  const hasRepoId = Object.prototype.hasOwnProperty.call(args, "repo_id");
+  const hasNewSlug = Object.prototype.hasOwnProperty.call(args, "new_doc_slug");
+
+  if (!hasTitle && !hasContent && !hasDescription && !hasPublished && !hasRepoId && !hasNewSlug) {
+    return errorResult(
+      "Provide at least one field to update: title, content, description, is_published, repo_id, or new_doc_slug."
+    );
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("org_docs")
+    .select("id, slug, title, content, is_published")
+    .eq("organization_id", orgId)
+    .eq("slug", targetSlug)
+    .single();
+
+  if (existingError || !existing) {
+    return errorResult(`Document "${targetSlug}" not found in ${orgName}`);
+  }
+
+  const updateData: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  let finalSlug = existing.slug;
+  if (hasNewSlug) {
+    const nextSlug = String(args.new_doc_slug || "").trim();
+    if (!nextSlug) {
+      return errorResult("new_doc_slug cannot be empty");
+    }
+    finalSlug = nextSlug;
+
+    if (finalSlug !== existing.slug) {
+      const { data: conflict } = await supabase
+        .from("org_docs")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("slug", finalSlug)
+        .neq("id", existing.id)
+        .single();
+      if (conflict) {
+        return errorResult(`A document with slug "${finalSlug}" already exists.`);
+      }
+    }
+
+    updateData.slug = finalSlug;
+  }
+
+  if (hasTitle) {
+    const nextTitle = String(args.title || "").trim();
+    if (!nextTitle) return errorResult("title cannot be empty");
+    updateData.title = nextTitle;
+  }
+
+  let nextContent = existing.content || "";
+  if (hasContent) {
+    nextContent = args.content === null ? "" : String(args.content || "");
+    updateData.content = nextContent;
+  }
+
+  if (hasDescription) {
+    updateData.description =
+      args.description === null || args.description === undefined
+        ? null
+        : String(args.description);
+  }
+
+  if (hasPublished) {
+    const published = parseBooleanInput(args.is_published);
+    if (published === null) return errorResult("is_published must be true/false");
+    updateData.is_published = published;
+  }
+
+  if (hasRepoId) {
+    if (args.repo_id === null || String(args.repo_id || "").trim() === "") {
+      updateData.repo_id = null;
+    } else {
+      const repoId = String(args.repo_id).trim();
+      const repoError = await validateRepoId(repoId, orgId);
+      if (repoError) return errorResult(repoError);
+      updateData.repo_id = repoId;
+    }
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("org_docs")
+    .update(updateData)
+    .eq("id", existing.id)
+    .select("title, slug, is_published")
+    .single();
+
+  if (updateError || !updated) {
+    return errorResult(`Error updating doc: ${updateError?.message || "unknown error"}`);
+  }
+
+  const storageWarning = await saveDocToStorage(orgId, finalSlug, nextContent);
+  const publicUrl = `https://monoid-dashboard.vercel.app/share/${orgSlug}/${updated.slug}`;
+
+  return textResult(
+    `Updated doc "${updated.title}" (slug: ${updated.slug}) in ${orgName}.\n` +
+      `Published: ${updated.is_published ? "yes" : "no"}\n` +
+      `Share URL: ${publicUrl}` +
+      (storageWarning ? `\n${storageWarning}` : "")
+  );
+}
 
 async function getOrganization(orgSlug: string) {
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -118,7 +473,9 @@ async function listDocs(orgId: string, orgName: string) {
     content: [
       {
         type: "text",
-        text: `# Documentation for ${orgName}\n\n${docs.length} document(s) available:\n\n${docList}\n\nUse get_doc with a doc_slug to read a specific document.`,
+        text:
+          `# Documentation for ${orgName}\n\n${docs.length} published document(s) available:\n\n${docList}` +
+          "\n\nUse get_doc with a doc_slug to read a specific document.",
       },
     ],
   };
@@ -246,8 +603,26 @@ async function handleToolCall(
   name: string,
   args: Record<string, unknown>,
   orgId: string,
-  orgName: string
+  orgSlug: string,
+  orgName: string,
+  providedWriteToken: string | null
 ) {
+  if (WRITE_TOOL_NAMES.has(name)) {
+    if (!writeToken) {
+      return errorResult(
+        "Write tools are disabled on this server. Set MONOID_MCP_WRITE_TOKEN in server environment."
+      );
+    }
+    if (!providedWriteToken) {
+      return errorResult(
+        "Missing write token. Send x-monoid-mcp-write-token header for create_doc/update_doc."
+      );
+    }
+    if (providedWriteToken !== writeToken) {
+      return errorResult("Invalid write token.");
+    }
+  }
+
   switch (name) {
     case "list_docs":
       return listDocs(orgId, orgName);
@@ -255,6 +630,10 @@ async function handleToolCall(
       return getDoc(orgId, orgName, String(args.doc_slug || ""));
     case "search_docs":
       return searchDocs(orgId, orgName, String(args.query || ""));
+    case "create_doc":
+      return createDocTool(orgId, orgSlug, orgName, args);
+    case "update_doc":
+      return updateDocTool(orgId, orgSlug, orgName, args);
     default:
       return {
         content: [{ type: "text", text: `Unknown tool: ${name}` }],
@@ -267,7 +646,8 @@ async function handleMcpRequest(
   body: unknown,
   orgId: string,
   orgName: string,
-  orgSlug: string
+  orgSlug: string,
+  providedWriteToken: string | null
 ) {
   const request = body as RpcRequest;
 
@@ -311,7 +691,9 @@ async function handleMcpRequest(
         callParams.name,
         callParams.arguments || {},
         orgId,
-        orgName
+        orgSlug,
+        orgName,
+        providedWriteToken
       );
       return { jsonrpc: "2.0", id, result };
     }
@@ -349,9 +731,15 @@ export async function GET(
       slug: org.slug,
     },
     tools: TOOLS.map((t) => t.name),
-    usage: "Connect using any MCP-compatible client via POST.",
+    usage:
+      "Connect via POST. Read tools are public; write tools require x-monoid-mcp-write-token header.",
     endpoint: `/api/mcp/${orgSlug}`,
     protocol: "MCP JSON-RPC 2.0",
+    writeTools: {
+      enabled: Boolean(writeToken),
+      requiredHeader: "x-monoid-mcp-write-token",
+      tools: ["create_doc", "update_doc"],
+    },
   });
 }
 
@@ -374,17 +762,30 @@ export async function POST(
   }
 
   try {
+    const headerWriteToken =
+      request.headers.get("x-monoid-mcp-write-token") ||
+      request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+      null;
+
     const body = await request.json();
 
     if (Array.isArray(body)) {
       const results = await Promise.all(
-        body.map((req) => handleMcpRequest(req, org.id, org.name, org.slug))
+        body.map((req) =>
+          handleMcpRequest(req, org.id, org.name, org.slug, headerWriteToken)
+        )
       );
       const responses = results.filter((r) => r !== null);
       return NextResponse.json(responses);
     }
 
-    const result = await handleMcpRequest(body, org.id, org.name, org.slug);
+    const result = await handleMcpRequest(
+      body,
+      org.id,
+      org.name,
+      org.slug,
+      headerWriteToken
+    );
     if (result === null) {
       return new NextResponse(null, { status: 204 });
     }
