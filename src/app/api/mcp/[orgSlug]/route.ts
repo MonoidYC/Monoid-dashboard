@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || null;
 const writeToken = process.env.MONOID_MCP_WRITE_TOKEN?.trim() || null;
 const STORAGE_BUCKET = "docs";
 const WRITE_TOOL_NAMES = new Set(["create_doc", "update_doc"]);
@@ -167,7 +168,10 @@ function parseBooleanInput(value: unknown): boolean | null {
 }
 
 async function saveDocToStorage(orgId: string, slug: string, content: string) {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createClient(
+    supabaseUrl,
+    supabaseServiceRoleKey || supabaseAnonKey
+  );
   const filePath = `${orgId}/${slug}.md`;
   const blob = new Blob([content], { type: "text/markdown" });
 
@@ -183,7 +187,10 @@ async function saveDocToStorage(orgId: string, slug: string, content: string) {
 }
 
 async function validateRepoId(repoId: string, orgId: string): Promise<string | null> {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createClient(
+    supabaseUrl,
+    supabaseServiceRoleKey || supabaseAnonKey
+  );
   const { data, error } = await supabase
     .from("repos")
     .select("id")
@@ -204,7 +211,13 @@ async function createDocTool(
   orgName: string,
   args: Record<string, unknown>
 ): Promise<ToolResponse> {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  if (!supabaseServiceRoleKey) {
+    return errorResult(
+      "Write tools require SUPABASE_SERVICE_ROLE_KEY in server environment."
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   const title = String(args.title || "").trim();
   if (!title) {
@@ -289,7 +302,13 @@ async function updateDocTool(
   orgName: string,
   args: Record<string, unknown>
 ): Promise<ToolResponse> {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  if (!supabaseServiceRoleKey) {
+    return errorResult(
+      "Write tools require SUPABASE_SERVICE_ROLE_KEY in server environment."
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
   const targetSlug = String(args.doc_slug || "").trim();
 
   if (!targetSlug) {
@@ -613,6 +632,11 @@ async function handleToolCall(
         "Write tools are disabled on this server. Set MONOID_MCP_WRITE_TOKEN in server environment."
       );
     }
+    if (!supabaseServiceRoleKey) {
+      return errorResult(
+        "Write tools require SUPABASE_SERVICE_ROLE_KEY in server environment."
+      );
+    }
     if (!providedWriteToken) {
       return errorResult(
         "Missing write token. Send x-monoid-mcp-write-token header for create_doc/update_doc."
@@ -736,8 +760,9 @@ export async function GET(
     endpoint: `/api/mcp/${orgSlug}`,
     protocol: "MCP JSON-RPC 2.0",
     writeTools: {
-      enabled: Boolean(writeToken),
+      enabled: Boolean(writeToken && supabaseServiceRoleKey),
       requiredHeader: "x-monoid-mcp-write-token",
+      requiresEnv: ["MONOID_MCP_WRITE_TOKEN", "SUPABASE_SERVICE_ROLE_KEY"],
       tools: ["create_doc", "update_doc"],
     },
   });

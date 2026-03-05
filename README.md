@@ -61,7 +61,8 @@ Optional auto-ingestion webhook configuration (for auto-analyze on repo import):
 
 - `MONOID_INGEST_WEBHOOK_URL` - server endpoint that can clone/analyze the repo and write graph rows.
 - `MONOID_INGEST_WEBHOOK_SECRET` - shared secret sent as `x-monoid-signature`.
-- `MONOID_MCP_WRITE_TOKEN` - optional token required by MCP write tools (`create_doc`, `update_doc`) via `x-monoid-mcp-write-token` header.
+- `MONOID_MCP_WRITE_TOKEN` - token required by MCP write tools (`create_doc`, `update_doc`) via `x-monoid-mcp-write-token` header.
+- `SUPABASE_SERVICE_ROLE_KEY` - required for MCP write tools so server-side doc writes can bypass RLS safely.
 
 These must point to a project that has the Monoid schema installed (see the plan file in the extension repo).
 
